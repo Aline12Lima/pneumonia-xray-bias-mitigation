@@ -1,6 +1,7 @@
 # Mitigation of Luminosity Bias in Chest X-Ray Pneumonia Classification
 
 Deep Learning with DenseNet121 and CBAM for robust and interpretable medical image classification
+Kaggle - https://www.kaggle.com/code/aline123lima/ic-usf-classification-pneumonia-clustering-v2
 
 ## 🧠 Problem
 Deep learning models applied to chest X-ray pneumonia classification often achieve high accuracy
