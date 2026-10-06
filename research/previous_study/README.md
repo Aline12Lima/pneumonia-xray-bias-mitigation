@@ -1,5 +1,7 @@
 # Estudo anterior — arquivo histórico
 
+Versão anterior da pesquisa, baseada em DenseNet121/CBAM, clustering, UMAP e investigação de viés de luminosidade. Preservada para rastreabilidade e comparação; seus resultados não são assumidos como conclusões do novo protocolo.
+
 - Notebook: [ic-usf-classification-pneumonia-clustering-v2.ipynb](notebooks/ic-usf-classification-pneumonia-clustering-v2.ipynb).
 - Modelo local: `models/modelo_B_cbam_best.h5` (não versionado no Git).
 - Código original: `src/analysis/`, `src/models/` e `src/training/`.
@@ -8,7 +10,7 @@ O notebook, o modelo e os códigos foram preservados sem alterações de conteú
 O arquivo `src/training/train.py` já estava incompleto no projeto original (termina durante a chamada de `flow_from_directory`).
 Os imports `src.models` desse código pressupõem que a raiz de execução seja `research/previous_study/`.
 Caminhos e dependências do notebook histórico precisam ser revisados antes de uma nova execução.
-Dados locais anteriormente em `data/train`, `data/val` e `data/test` agora ficam em `data/raw/` na raiz do repositório.
+Dados locais anteriormente em `data/train`, `data/val` e `data/test` agora ficam em `research/previous_study/data/`, separados dos datasets da nova pesquisa.
 
 A documentação original abaixo é histórica: suas afirmações não foram revalidadas nesta reorganização.
 O arquivo `docs/paper.pdf` mencionado não estava presente, e o link de reprodução original contém um marcador provisório.

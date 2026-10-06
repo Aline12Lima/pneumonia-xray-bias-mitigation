@@ -112,45 +112,479 @@ Reconhecer que uma transformação 2D não reproduz adequadamente o fenômeno f�
 
 # 5. Matriz científica de variáveis
 
-| Fator | Categoria | Observar | Medir | Perturbar | Estratificar | Controlar | Não simular |
-|---|---|---:|---:|---:|---:|---:|---:|
-| Opacidade/consolidação | Patológica | ✓ | possível | não | possível | ✓ | — |
-| Localização da lesão | Patológica | ✓ | possível | não | possível | ✓ | — |
-| Anatomia pulmonar | Anatômica | ✓ | possível | não | possível | ✓ | — |
-| Intensidade global | Processamento/apresentação | ✓ | ✓ | ✓ | possível | ✓ | — |
-| Contraste | Processamento/apresentação | ✓ | ✓ | ✓ | possível | ✓ | — |
-| Gamma | Processamento/apresentação | ✓ | ✓ | ✓ | não | ✓ | — |
-| Histogram equalization | Processamento | ✓ | ✓ | ✓ como experimento | não | ✓ | — |
-| CLAHE | Processamento | ✓ | ✓ | ✓ como experimento | não | ✓ | — |
-| Ruído aparente | Qualidade/aquisição | ✓ | ✓ | ✓ com modelo adequado | possível | ✓ | — |
-| mAs | Aquisição física | metadado | ✓ se disponível | não diretamente | ✓ | ✓ | ✓ |
-| kVp | Aquisição física | metadado | ✓ se disponível | não diretamente | ✓ | ✓ | ✓ |
-| Exposure Index | Aquisição física | metadado | ✓ | não | ✓ | ✓ | ✓ |
-| DQE/MTF | Detector | contexto | raramente | não | por equipamento | possível | ✓ |
-| Detector/fabricante | Domínio | ✓ | categórico | não | ✓ | ✓ | ✓ |
-| PA/AP | Geometria | ✓ | categórico | não | ✓ | ✓ | ✓ |
-| Upright/supine | Geometria/fisiologia | ✓ | categórico | não | ✓ | ✓ | ✓ |
-| Inspiração | Geometria/qualidade | ✓ | possível | não fielmente | ✓ | ✓ | ✓ |
-| Rotação do paciente | Geometria | ✓ | possível | não fielmente | ✓ | ✓ | ✓ |
-| Rotação 2D | Perturbação computacional | ✓ | ✓ | ✓ | não | ✓ | não confundir com rotação do paciente |
-| SID | Geometria | metadado | ✓ se disponível | não | ✓ | ✓ | ✓ |
-| Resize | Preprocessamento | ✓ | ✓ | ✓ | não | ✓ | não confundir com projeção |
-| Blur | Qualidade | ✓ | ✓ | ✓ | possível | ✓ | não chamar automaticamente de motion blur real |
-| Crop | Qualidade/preprocessamento | ✓ | ✓ | ✓ controlado | possível | ✓ | não assumir preservação da evidência |
-| Compressão JPEG | Armazenamento | ✓ | ✓ | ✓ | possível | ✓ | — |
-| Bit depth | Representação | ✓ | ✓ | possível | ✓ | ✓ | — |
-| Window Center/Width | Processamento | ✓ | ✓ | ✓ | possível | ✓ | — |
-| LUT | Processamento | ✓ | ✓ | ✓ | possível | ✓ | — |
-| MONOCHROME1/2 | Representação | ✓ | categórico | não | ✓ | ✓ | ✓ |
-| Texto/marcadores | Artefato | ✓ | possível | possível como controle | ✓ | ✓ | — |
-| Cabos/tubos/dispositivos | Artefato/contexto clínico | ✓ | possível | não necessariamente | ✓ | ✓ | — |
-| Padding/bordas | Dataset | ✓ | ✓ | possível | ✓ | ✓ | — |
-| Hospital | Domínio | ✓ | categórico | não | ✓ | ✓ | ✓ |
-| Equipamento | Domínio | ✓ | categórico | não | ✓ | ✓ | ✓ |
-| Protocolo institucional | Domínio | ✓ | se disponível | não | ✓ | ✓ | ✓ |
-| Prevalência do rótulo | Dataset | ✓ | ✓ | não | ✓ | ✓ | — |
-| Label noise | Rótulo | ✓ | estimar | não | ✓ | ✓ | — |
 
+A matriz abaixo organiza os fatores identificados na Fase 1 de acordo com a forma como eles devem ser tratados no projeto.
+
+As ações possíveis são:
+
+- **Observar** → inspecionar visualmente ou descrever.
+- **Medir** → extrair quantitativamente uma característica.
+- **Perturbar** → aplicar uma transformação sintética controlada.
+- **Estratificar** → separar exemplos reais em subgrupos.
+- **Controlar** → considerar explicitamente no desenho experimental.
+- **Não simular** → reconhecer que uma transformação 2D não representa adequadamente o fenômeno físico real.
+
+---
+
+## 5.1 Variáveis patológicas e anatômicas
+
+### Opacidade / consolidação
+- **Categoria:** Patológica
+- **Observar:** sim
+- **Medir:** possível
+- **Perturbar:** não
+- **Estratificar:** possível
+- **Controlar:** sim
+- **Não simular:** não se aplica
+- **Interpretação:** representa potencial evidência clínica que o modelo pode legitimamente utilizar.
+
+### Localização da lesão
+- **Categoria:** Patológica
+- **Observar:** sim
+- **Medir:** possível
+- **Perturbar:** não
+- **Estratificar:** possível
+- **Controlar:** sim
+- **Não simular:** não se aplica
+- **Interpretação:** pode ser utilizada para verificar se erros ou sensibilidades se concentram em determinadas regiões pulmonares.
+
+### Anatomia pulmonar
+- **Categoria:** Anatômica
+- **Observar:** sim
+- **Medir:** possível
+- **Perturbar:** não
+- **Estratificar:** possível
+- **Controlar:** sim
+- **Não simular:** não se aplica
+- **Interpretação:** informação anatômica real que deve ser preservada durante o preprocessing.
+
+---
+
+## 5.2 Intensidade e processamento da imagem
+
+### Intensidade global
+- **Categoria:** Processamento / apresentação
+- **Observar:** sim
+- **Medir:** sim
+- **Perturbar:** sim
+- **Estratificar:** possível
+- **Controlar:** sim
+- **Não simular:** não
+- **Interpretação:** pode ser usada em testes de robustez à intensidade global.
+- **Cuidado:** não interpretar automaticamente como exposição radiográfica.
+
+### Contraste
+- **Categoria:** Processamento / apresentação
+- **Observar:** sim
+- **Medir:** sim
+- **Perturbar:** sim
+- **Estratificar:** possível
+- **Controlar:** sim
+- **Não simular:** não
+- **Cuidado:** alteração sintética de contraste não deve ser descrita automaticamente como alteração de kVp.
+
+### Gamma
+- **Categoria:** Processamento / apresentação
+- **Observar:** sim
+- **Medir:** sim
+- **Perturbar:** sim
+- **Estratificar:** não prioritariamente
+- **Controlar:** sim
+- **Não simular:** não
+- **Interpretação:** transformação não linear de intensidade útil para testar sensibilidade à apresentação.
+
+### Histogram Equalization
+- **Categoria:** Processamento
+- **Observar:** sim
+- **Medir:** sim
+- **Perturbar:** apenas como experimento controlado
+- **Estratificar:** não
+- **Controlar:** sim
+- **Não simular:** não
+- **Cuidado:** não assumir que melhora automaticamente a generalização.
+
+### CLAHE
+- **Categoria:** Processamento
+- **Observar:** sim
+- **Medir:** sim
+- **Perturbar:** apenas como experimento controlado
+- **Estratificar:** não
+- **Controlar:** sim
+- **Não simular:** não
+- **Cuidado:** pode alterar localmente contraste e distribuição dos dados.
+
+### Window Center / Window Width
+- **Categoria:** Processamento
+- **Observar:** sim
+- **Medir:** sim
+- **Perturbar:** sim
+- **Estratificar:** possível
+- **Controlar:** sim
+- **Não simular:** não
+- **Interpretação:** representa transformação de apresentação, não nova aquisição.
+
+### LUT
+- **Categoria:** Processamento
+- **Observar:** sim
+- **Medir:** sim
+- **Perturbar:** sim
+- **Estratificar:** possível
+- **Controlar:** sim
+- **Não simular:** não
+- **Interpretação:** importante para entender diferenças entre imagem de processamento e imagem apresentada.
+
+---
+
+## 5.3 Aquisição física
+
+### mAs
+- **Categoria:** Aquisição física
+- **Observar:** via metadado
+- **Medir:** sim, se disponível
+- **Perturbar:** não diretamente
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** sim
+- **Interpretação:** afeta quantidade de fótons, ruído e SNR.
+- **Cuidado:** reduzir brightness não equivale a reduzir mAs.
+
+### kVp
+- **Categoria:** Aquisição física
+- **Observar:** via metadado
+- **Medir:** sim, se disponível
+- **Perturbar:** não diretamente
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** sim
+- **Interpretação:** influencia espectro energético, penetração e contraste físico.
+- **Cuidado:** alterar contraste digital não equivale a alterar kVp.
+
+### Exposure Index
+- **Categoria:** Aquisição física
+- **Observar:** via metadado
+- **Medir:** sim
+- **Perturbar:** não
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** sim
+- **Interpretação:** quando disponível, é preferível à inferência visual de exposição.
+
+### Ruído aparente
+- **Categoria:** Qualidade / aquisição
+- **Observar:** sim
+- **Medir:** sim
+- **Perturbar:** sim, com modelo de ruído adequado
+- **Estratificar:** possível
+- **Controlar:** sim
+- **Não simular:** não necessariamente
+- **Cuidado:** o ruído sintético deve ser descrito como aproximação, não como reprodução perfeita da aquisição.
+
+---
+
+## 5.4 Detector e equipamento
+
+### DQE / MTF
+- **Categoria:** Detector
+- **Observar:** como contexto técnico
+- **Medir:** raramente, dependendo dos dados disponíveis
+- **Perturbar:** não
+- **Estratificar:** por equipamento, se possível
+- **Controlar:** possível
+- **Não simular:** sim
+- **Interpretação:** caracterizam eficiência e transferência de detalhe do sistema.
+
+### Detector / fabricante
+- **Categoria:** Domínio
+- **Observar:** sim
+- **Medir:** categórico
+- **Perturbar:** não
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** sim
+- **Interpretação:** possível fonte de domain shift e shortcut learning.
+
+### Equipamento
+- **Categoria:** Domínio
+- **Observar:** sim
+- **Medir:** categórico
+- **Perturbar:** não
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** sim
+
+---
+
+## 5.5 Geometria da aquisição
+
+### PA / AP
+- **Categoria:** Geometria
+- **Observar:** sim
+- **Medir:** categórico
+- **Perturbar:** não
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** sim
+- **Interpretação:** deve ser avaliada com exemplos reais, não fabricada por transformação 2D.
+
+### Upright / supine
+- **Categoria:** Geometria / fisiologia
+- **Observar:** sim
+- **Medir:** categórico
+- **Perturbar:** não
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** sim
+
+### Inspiração
+- **Categoria:** Geometria / qualidade
+- **Observar:** sim
+- **Medir:** possível
+- **Perturbar:** não fielmente
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** sim
+- **Interpretação:** altera volume pulmonar e aparência das estruturas.
+
+### Rotação do paciente
+- **Categoria:** Geometria
+- **Observar:** sim
+- **Medir:** possível
+- **Perturbar:** não fielmente
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** sim
+- **Cuidado:** rotate 2D não equivale à rotação tridimensional do paciente.
+
+### SID
+- **Categoria:** Geometria
+- **Observar:** via metadado
+- **Medir:** sim, se disponível
+- **Perturbar:** não
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** sim
+
+---
+
+## 5.6 Perturbações computacionais e qualidade
+
+### Rotação 2D
+- **Categoria:** Perturbação computacional
+- **Observar:** sim
+- **Medir:** sim
+- **Perturbar:** sim
+- **Estratificar:** não
+- **Controlar:** sim
+- **Não simular:** não
+- **Cuidado:** não descrever como rotação real do paciente.
+
+### Resize
+- **Categoria:** Preprocessamento
+- **Observar:** sim
+- **Medir:** sim
+- **Perturbar:** sim
+- **Estratificar:** não
+- **Controlar:** sim
+- **Não simular:** não
+- **Cuidado:** não interpretar como alteração de projeção ou SID.
+
+### Blur
+- **Categoria:** Qualidade
+- **Observar:** sim
+- **Medir:** sim
+- **Perturbar:** sim
+- **Estratificar:** possível
+- **Controlar:** sim
+- **Não simular:** parcialmente
+- **Cuidado:** Gaussian blur não deve ser chamado automaticamente de motion blur real.
+
+### Crop
+- **Categoria:** Qualidade / preprocessamento
+- **Observar:** sim
+- **Medir:** sim
+- **Perturbar:** sim, de forma controlada
+- **Estratificar:** possível
+- **Controlar:** sim
+- **Não simular:** não
+- **Cuidado:** crop pode remover informação patológica; portanto, invariância não é necessariamente desejável.
+
+### Compressão JPEG
+- **Categoria:** Armazenamento
+- **Observar:** sim
+- **Medir:** sim
+- **Perturbar:** sim
+- **Estratificar:** possível
+- **Controlar:** sim
+- **Não simular:** não
+- **Interpretação:** útil para testar robustez a perda/compressão de armazenamento.
+
+---
+
+## 5.7 Representação digital
+
+### Bit depth
+- **Categoria:** Representação
+- **Observar:** sim
+- **Medir:** sim
+- **Perturbar:** possível
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** não
+
+### MONOCHROME1 / MONOCHROME2
+- **Categoria:** Representação
+- **Observar:** sim
+- **Medir:** categórico
+- **Perturbar:** não
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** sim
+- **Interpretação:** deve ser tratado corretamente na leitura do DICOM.
+
+---
+
+## 5.8 Artefatos e elementos externos
+
+### Texto / marcadores
+- **Categoria:** Artefato
+- **Observar:** sim
+- **Medir:** possível
+- **Perturbar:** possível como controle experimental
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** não
+- **Interpretação:** possível fonte de shortcut learning.
+
+### Cabos / tubos / dispositivos
+- **Categoria:** Artefato / contexto clínico
+- **Observar:** sim
+- **Medir:** possível
+- **Perturbar:** não necessariamente
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** não
+- **Interpretação:** podem também funcionar como proxies de gravidade ou ambiente hospitalar.
+
+### Padding / bordas
+- **Categoria:** Dataset
+- **Observar:** sim
+- **Medir:** sim
+- **Perturbar:** possível
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** não
+
+---
+
+## 5.9 Domínio e instituição
+
+### Hospital
+- **Categoria:** Domínio
+- **Observar:** sim
+- **Medir:** categórico
+- **Perturbar:** não
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** sim
+- **Interpretação:** uma das principais variáveis para avaliar generalização externa.
+
+### Protocolo institucional
+- **Categoria:** Domínio
+- **Observar:** sim
+- **Medir:** se disponível
+- **Perturbar:** não
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** sim
+
+---
+
+## 5.10 Rótulos e composição do dataset
+
+### Prevalência do rótulo
+- **Categoria:** Dataset
+- **Observar:** sim
+- **Medir:** sim
+- **Perturbar:** não
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** não
+- **Interpretação:** deve ser considerada nas comparações entre datasets.
+
+### Label noise
+- **Categoria:** Rótulo
+- **Observar:** sim
+- **Medir:** estimar quando possível
+- **Perturbar:** não
+- **Estratificar:** sim
+- **Controlar:** sim
+- **Não simular:** não
+- **Interpretação:** FP/FN podem refletir erro do modelo, ambiguidade clínica ou erro do rótulo.
+
+---
+
+# 5.11 Síntese operacional
+
+A Fase 1 indica que as variáveis devem seguir quatro estratégias principais:
+
+### Perturbações sintéticas controladas
+
+Usar principalmente para testar robustez a:
+
+- intensidade;
+- contraste;
+- gamma;
+- ruído;
+- blur;
+- downsampling;
+- compressão;
+- transformações de apresentação.
+
+### Subgrupos reais
+
+Usar para:
+
+- PA/AP;
+- posição;
+- inspiração;
+- hospital;
+- equipamento;
+- dispositivos;
+- condições reais de aquisição.
+
+### Metadados
+
+Priorizar quando disponíveis:
+
+- kVp;
+- mAs;
+- Exposure Index;
+- View Position;
+- Patient Position;
+- fabricante;
+- equipamento;
+- Pixel Spacing;
+- Photometric Interpretation.
+
+### Não simular retrospectivamente
+
+Não tratar como equivalentes físicos:
+
+- brightness ≠ exposição;
+- contraste ≠ kVp;
+- rotate 2D ≠ rotação do paciente;
+- resize ≠ mudança de SID;
+- PA ≠ AP sintético;
+- upright ≠ supine sintético;
+- baixa inspiração ≠ simples resize/crop.
+
+---
+
+## 5.12 Regra metodológica final
+
+> **Não vamos transformar todos os fatores identificados em augmentations.**
+
+Alguns serão **perturbações sintéticas controladas**, outros serão estudados como **subgrupos reais**, alguns entrarão como **metadados ou variáveis de controle**, e outros serão reconhecidos explicitamente como **limitações que não podem ser reconstruídas retrospectivamente a partir da imagem final**.
 ---
 
 # 6. Tipos de experimento derivados da Fase 1

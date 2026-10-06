@@ -7,10 +7,10 @@ Pesquisa sobre viés de luminosidade, robustez e generalização na classificaç
 | Diretório | Conteúdo |
 | --- | --- |
 | `research/previous_study/` | Notebook, modelo e código do estudo anterior, com documentação histórica. |
-| `data/raw/` | Dados originais; contém as pastas preexistentes `train/`, `val/` e `test/`. |
+| `data/raw/` | Dados originais da nova pesquisa. |
 | `data/interim/` | Dados intermediários. |
 | `data/processed/` | Dados preparados para os experimentos. |
-| `notebooks/` | Dez rascunhos numerados, do protocolo à reprodução final. |
+| `notebooks/` | Diretório vazio; notebooks serão criados no VS Code/Jupyter em cada fase. |
 | `src/` | Módulos futuros de dados, modelos, avaliação, perturbações, análise e visualização. |
 | `experiments/` | Configurações de baseline, perturbações, generalização e replicação. |
 | `results/` | Figuras, tabelas, métricas e logs gerados. |
@@ -19,7 +19,8 @@ Pesquisa sobre viés de luminosidade, robustez e generalização na classificaç
 
 ## Estado atual
 
-A nova estrutura está preparada; os novos notebooks são rascunhos sem execução ou resultados.
+A nova estrutura está preparada; nenhum notebook da nova pesquisa foi criado.
+As pastas antigas `train/`, `val/` e `test/` estão arquivadas em `research/previous_study/data/`.
 O estudo anterior está em [research/previous_study/README.md](research/previous_study/README.md).
 O arquivo `requirements.txt` permanece vazio, como no projeto original: o ambiente de execução ainda precisa ser definido e validado.
 
