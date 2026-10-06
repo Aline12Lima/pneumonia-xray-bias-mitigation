@@ -11,6 +11,7 @@ venv/
 .ipynb_checkpoints/
 
 # Data
+/research/previous_study/data/
 data/**
 !data/**/
 !data/**/.gitkeep
