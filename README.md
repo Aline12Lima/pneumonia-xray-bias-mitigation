@@ -1,77 +1,30 @@
-# Mitigation of Luminosity Bias in Chest X-Ray Pneumonia Classification
+# Pneumonia X-Ray Bias Mitigation
 
-Deep Learning with DenseNet121 and CBAM for robust and interpretable medical image classification
-Kaggle - https://www.kaggle.com/code/aline123lima/ic-usf-classification-pneumonia-clustering-v2
+Pesquisa sobre viés de luminosidade, robustez e generalização na classificação de pneumonia em radiografias de tórax.
 
-## 🧠 Problem
-Deep learning models applied to chest X-ray pneumonia classification often achieve high accuracy
-by exploiting spurious correlations, such as image brightness and contrast, rather than true
-pulmonary morphology. This phenomenon, known as shortcut learning, can lead to unreliable
-clinical behavior and poor generalization.
+## Organização
 
-## 🔬 Approach
+| Diretório | Conteúdo |
+| --- | --- |
+| `research/previous_study/` | Notebook, modelo e código do estudo anterior, com documentação histórica. |
+| `data/raw/` | Dados originais; contém as pastas preexistentes `train/`, `val/` e `test/`. |
+| `data/interim/` | Dados intermediários. |
+| `data/processed/` | Dados preparados para os experimentos. |
+| `notebooks/` | Dez rascunhos numerados, do protocolo à reprodução final. |
+| `src/` | Módulos futuros de dados, modelos, avaliação, perturbações, análise e visualização. |
+| `experiments/` | Configurações de baseline, perturbações, generalização e replicação. |
+| `results/` | Figuras, tabelas, métricas e logs gerados. |
+| `docs/` | Protocolo, literatura, notas dos datasets e reuniões. |
+| `tests/` | Testes futuros. |
 
-This project investigates luminosity bias in convolutional neural networks by comparing a
-DenseNet121 baseline model with a DenseNet121 architecture enhanced with the Convolutional
-Block Attention Module (CBAM).
+## Estado atual
 
-Beyond standard performance metrics, the models are analyzed through latent space topology
-using UMAP and HDBSCAN, enabling a detailed investigation of internal representations,
-error distribution, and shortcut learning behavior.
+A nova estrutura está preparada; os novos notebooks são rascunhos sem execução ou resultados.
+O estudo anterior está em [research/previous_study/README.md](research/previous_study/README.md).
+O arquivo `requirements.txt` permanece vazio, como no projeto original: o ambiente de execução ainda precisa ser definido e validado.
 
-## 🧪 Experiments
+## Dados e artefatos
 
-- Dataset: Chest X-Ray Pneumonia Dataset (Kermany et al.)
-- Input size: 224 × 224
-- Architectures:
-  - DenseNet121 (baseline)
-  - DenseNet121 + CBAM
-- Optimization:
-  - Adam optimizer
-  - Binary Crossentropy loss
-  - Early Stopping and ReduceLROnPlateau
-- Evaluation:
-  - Accuracy, Sensitivity
-  - False Positives and False Negatives analysis
-
-## 📊 Key Results
-
-- The baseline model formed only 3 brightness-driven macro-clusters in the latent space.
-- The CBAM-enhanced model reorganized representations into 47 morphology-based micro-clusters.
-- Luminosity bias was significantly reduced, leading to clinically coherent error patterns.
-- Remaining errors were associated with subtle opacities and low-contrast cases rather than
-  acquisition artifacts.
-## 🧠 Interpretability and Error Analysis
-
-Latent space projections using UMAP and clustering with HDBSCAN revealed how attention
-mechanisms reshape internal representations. Errors were mapped onto micro-clusters,
-demonstrating that the CBAM model fails primarily on challenging clinical cases rather than
-on spurious visual cues.
-## 📄 Scientific Paper
-
-The full paper describing the methodology, experiments, and results is available in:
-
-📄 `docs/paper.pdf`
-## 🔗 Reproducibility
-
-All experiments were executed on Kaggle due to GPU availability.
-The complete and reproducible notebook is available at:
-
-🔗 https://www.kaggle.com/SEU-LINK-AQUI
-
-## 🧰 Tools and Technologies
-
-- Programming Language: Python
-- Deep Learning: TensorFlow / Keras
-- Architectures: DenseNet121, CBAM
-- Representation Analysis: UMAP, HDBSCAN
-- Data Processing: NumPy, Pandas
-- Visualization: Matplotlib, Seaborn
-- Environment: Kaggle, Jupyter Notebook
-- Version Control: Git, GitHub
-## 🚀 Future Work
-
-- Attention ablation studies (SE, ECA)
-- Robustness analysis under illumination perturbations
-- Extension to multi-center datasets
-- Deployment-oriented inference analysis
+Dados, modelos e resultados gerados não são versionados no Git. Arquivos `.gitkeep` preservam os diretórios da estrutura.
+O modelo local foi movido para `research/previous_study/models/modelo_B_cbam_best.h5` e continua ignorado pelo Git.
+Não há download automático de datasets ou modelos.

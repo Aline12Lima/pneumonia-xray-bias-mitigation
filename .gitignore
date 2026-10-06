@@ -5,16 +5,20 @@ __pycache__/
 *.pyd
 .env
 venv/
+.venv/
 
 # Jupyter
 .ipynb_checkpoints/
 
 # Data
-data/
+data/**
+!data/**/
+!data/**/.gitkeep
 *.h5
 *.ckpt
 *.pt
 
 # Results
-results/
-
+results/**
+!results/**/
+!results/**/.gitkeep
