@@ -1,0 +1,5 @@
+# PENDENTE — ambiente de execução ainda não definido e validado (F2.2).
+# O .venv existente está incompleto e requirements.txt está vazio.
+# Este arquivo ainda NÃO representa um ambiente congelado.
+# Após validar o ambiente, substituir pelo resultado de:
+# python -m pip freeze --all > requirements.lock

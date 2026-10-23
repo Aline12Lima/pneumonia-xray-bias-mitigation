@@ -12,9 +12,8 @@ venv/
 
 # Data
 /research/previous_study/data/
-data/**
-!data/**/
-!data/**/.gitkeep
+/data/*
+!/data/splits/
 *.h5
 *.ckpt
 *.pt
@@ -23,3 +22,23 @@ data/**
 results/**
 !results/**/
 !results/**/.gitkeep
+
+# Imagens, arrays e pesos (termos de uso das bases)
+*.dcm
+*.png
+*.jpg
+*.jpeg
+*.npy
+*.npz
+*.pth
+*.parquet
+
+# Imagens, arrays e pesos (termos de uso das bases)
+*.dcm
+*.png
+*.jpg
+*.jpeg
+*.npy
+*.npz
+*.pth
+*.parquet

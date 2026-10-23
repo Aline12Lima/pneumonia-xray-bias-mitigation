@@ -690,3 +690,93 @@ A Fase 1 entrega:
 - base para definir o protocolo experimental.
 
 A partir daqui, a próxima fase deve usar essa matriz para avaliar candidatos a datasets e decidir quais variáveis estarão realmente disponíveis em cada base.
+
+---
+
+## Anexo — Matriz de fatores (recuperada da versão de 06/10/2026, 14:08)
+
+Esta tabela saiu da síntese na reescrita de 06/10 e foi recuperada aqui porque liga cada fator a como ele é tratado no experimento.
+
+| Fator | Categoria | Observar | Medir | Perturbar | Estratificar | Controlar | Não simular |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Opacidade/consolidação | Patológica | ✓ | possível | não | possível | ✓ | — |
+| Localização da lesão | Patológica | ✓ | possível | não | possível | ✓ | — |
+| Anatomia pulmonar | Anatômica | ✓ | possível | não | possível | ✓ | — |
+| Intensidade global | Processamento/apresentação | ✓ | ✓ | ✓ | possível | ✓ | — |
+| Contraste | Processamento/apresentação | ✓ | ✓ | ✓ | possível | ✓ | — |
+| Gamma | Processamento/apresentação | ✓ | ✓ | ✓ | não | ✓ | — |
+| Histogram equalization | Processamento | ✓ | ✓ | ✓ como experimento | não | ✓ | — |
+| CLAHE | Processamento | ✓ | ✓ | ✓ como experimento | não | ✓ | — |
+| Ruído aparente | Qualidade/aquisição | ✓ | ✓ | ✓ com modelo adequado | possível | ✓ | — |
+| mAs | Aquisição física | metadado | ✓ se disponível | não diretamente | ✓ | ✓ | ✓ |
+| kVp | Aquisição física | metadado | ✓ se disponível | não diretamente | ✓ | ✓ | ✓ |
+| Exposure Index | Aquisição física | metadado | ✓ | não | ✓ | ✓ | ✓ |
+| DQE/MTF | Detector | contexto | raramente | não | por equipamento | possível | ✓ |
+| Detector/fabricante | Domínio | ✓ | categórico | não | ✓ | ✓ | ✓ |
+| PA/AP | Geometria | ✓ | categórico | não | ✓ | ✓ | ✓ |
+| Upright/supine | Geometria/fisiologia | ✓ | categórico | não | ✓ | ✓ | ✓ |
+| Inspiração | Geometria/qualidade | ✓ | possível | não fielmente | ✓ | ✓ | ✓ |
+| Rotação do paciente | Geometria | ✓ | possível | não fielmente | ✓ | ✓ | ✓ |
+| Rotação 2D | Perturbação computacional | ✓ | ✓ | ✓ | não | ✓ | não confundir com rotação do paciente |
+| SID | Geometria | metadado | ✓ se disponível | não | ✓ | ✓ | ✓ |
+| Resize | Preprocessamento | ✓ | ✓ | ✓ | não | ✓ | não confundir com projeção |
+| Blur | Qualidade | ✓ | ✓ | ✓ | possível | ✓ | não chamar automaticamente de motion blur real |
+| Crop | Qualidade/preprocessamento | ✓ | ✓ | ✓ controlado | possível | ✓ | não assumir preservação da evidência |
+| Compressão JPEG | Armazenamento | ✓ | ✓ | ✓ | possível | ✓ | — |
+| Bit depth | Representação | ✓ | ✓ | possível | ✓ | ✓ | — |
+| Window Center/Width | Processamento | ✓ | ✓ | ✓ | possível | ✓ | — |
+| LUT | Processamento | ✓ | ✓ | ✓ | possível | ✓ | — |
+| MONOCHROME1/2 | Representação | ✓ | categórico | não | ✓ | ✓ | ✓ |
+| Texto/marcadores | Artefato | ✓ | possível | possível como controle | ✓ | ✓ | — |
+| Cabos/tubos/dispositivos | Artefato/contexto clínico | ✓ | possível | não necessariamente | ✓ | ✓ | — |
+| Padding/bordas | Dataset | ✓ | ✓ | possível | ✓ | ✓ | — |
+| Hospital | Domínio | ✓ | categórico | não | ✓ | ✓ | ✓ |
+| Equipamento | Domínio | ✓ | categórico | não | ✓ | ✓ | ✓ |
+| Protocolo institucional | Domínio | ✓ | se disponível | não | ✓ | ✓ | ✓ |
+| Prevalência do rótulo | Dataset | ✓ | ✓ | não | ✓ | ✓ | — |
+| Label noise | Rótulo | ✓ | estimar | não | ✓ | ✓ | — |
+
+---
+
+## Anexo — Matriz de fatores (recuperada da versão de 06/10/2026, 14:08)
+
+Esta tabela saiu da síntese na reescrita de 06/10 e foi recuperada aqui porque liga cada fator a como ele é tratado no experimento.
+
+| Fator | Categoria | Observar | Medir | Perturbar | Estratificar | Controlar | Não simular |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Opacidade/consolidação | Patológica | ✓ | possível | não | possível | ✓ | — |
+| Localização da lesão | Patológica | ✓ | possível | não | possível | ✓ | — |
+| Anatomia pulmonar | Anatômica | ✓ | possível | não | possível | ✓ | — |
+| Intensidade global | Processamento/apresentação | ✓ | ✓ | ✓ | possível | ✓ | — |
+| Contraste | Processamento/apresentação | ✓ | ✓ | ✓ | possível | ✓ | — |
+| Gamma | Processamento/apresentação | ✓ | ✓ | ✓ | não | ✓ | — |
+| Histogram equalization | Processamento | ✓ | ✓ | ✓ como experimento | não | ✓ | — |
+| CLAHE | Processamento | ✓ | ✓ | ✓ como experimento | não | ✓ | — |
+| Ruído aparente | Qualidade/aquisição | ✓ | ✓ | ✓ com modelo adequado | possível | ✓ | — |
+| mAs | Aquisição física | metadado | ✓ se disponível | não diretamente | ✓ | ✓ | ✓ |
+| kVp | Aquisição física | metadado | ✓ se disponível | não diretamente | ✓ | ✓ | ✓ |
+| Exposure Index | Aquisição física | metadado | ✓ | não | ✓ | ✓ | ✓ |
+| DQE/MTF | Detector | contexto | raramente | não | por equipamento | possível | ✓ |
+| Detector/fabricante | Domínio | ✓ | categórico | não | ✓ | ✓ | ✓ |
+| PA/AP | Geometria | ✓ | categórico | não | ✓ | ✓ | ✓ |
+| Upright/supine | Geometria/fisiologia | ✓ | categórico | não | ✓ | ✓ | ✓ |
+| Inspiração | Geometria/qualidade | ✓ | possível | não fielmente | ✓ | ✓ | ✓ |
+| Rotação do paciente | Geometria | ✓ | possível | não fielmente | ✓ | ✓ | ✓ |
+| Rotação 2D | Perturbação computacional | ✓ | ✓ | ✓ | não | ✓ | não confundir com rotação do paciente |
+| SID | Geometria | metadado | ✓ se disponível | não | ✓ | ✓ | ✓ |
+| Resize | Preprocessamento | ✓ | ✓ | ✓ | não | ✓ | não confundir com projeção |
+| Blur | Qualidade | ✓ | ✓ | ✓ | possível | ✓ | não chamar automaticamente de motion blur real |
+| Crop | Qualidade/preprocessamento | ✓ | ✓ | ✓ controlado | possível | ✓ | não assumir preservação da evidência |
+| Compressão JPEG | Armazenamento | ✓ | ✓ | ✓ | possível | ✓ | — |
+| Bit depth | Representação | ✓ | ✓ | possível | ✓ | ✓ | — |
+| Window Center/Width | Processamento | ✓ | ✓ | ✓ | possível | ✓ | — |
+| LUT | Processamento | ✓ | ✓ | ✓ | possível | ✓ | — |
+| MONOCHROME1/2 | Representação | ✓ | categórico | não | ✓ | ✓ | ✓ |
+| Texto/marcadores | Artefato | ✓ | possível | possível como controle | ✓ | ✓ | — |
+| Cabos/tubos/dispositivos | Artefato/contexto clínico | ✓ | possível | não necessariamente | ✓ | ✓ | — |
+| Padding/bordas | Dataset | ✓ | ✓ | possível | ✓ | ✓ | — |
+| Hospital | Domínio | ✓ | categórico | não | ✓ | ✓ | ✓ |
+| Equipamento | Domínio | ✓ | categórico | não | ✓ | ✓ | ✓ |
+| Protocolo institucional | Domínio | ✓ | se disponível | não | ✓ | ✓ | ✓ |
+| Prevalência do rótulo | Dataset | ✓ | ✓ | não | ✓ | ✓ | — |
+| Label noise | Rótulo | ✓ | estimar | não | ✓ | ✓ | — |
