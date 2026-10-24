@@ -7,7 +7,7 @@ Não precisa de nenhuma imagem. Usa:
   data/raw/padchest/unzip-l/*.zip.unzip-l.txt
 
 Gera:
-  docs/dataset_notes/padchest_auditoria_preliminar.md   (relatório para colar no chat)
+  results/tables/padchest/relatorio_metadados.md   (relatório para colar no chat)
   results/tables/padchest/*.csv                          (tabelas de apoio)
 
 Uso (na raiz do repositório):
@@ -180,7 +180,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default="data/raw/padchest")
     ap.add_argument("--csv", default="PADCHEST_chest_x_ray_images_labels_160K_01.02.19.csv.gz")
-    ap.add_argument("--report", default="docs/dataset_notes/padchest_auditoria_preliminar.md")
+    ap.add_argument("--report", default="results/tables/padchest/relatorio_metadados.md")
     ap.add_argument("--tables", default="results/tables/padchest")
     ap.add_argument("--zips", default=",".join(map(str, CANDIDATE_ZIPS)),
                     help="pacotes do subconjunto candidato (D-025), separados por vírgula")
