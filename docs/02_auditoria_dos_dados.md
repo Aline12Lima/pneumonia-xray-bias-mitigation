@@ -20,7 +20,7 @@
 | Pacientes | 62.832 | cerca de 10.926 | cerca de 22.987 |
 | Positivos | 3.444 (1,95%) | 5.627 (22,1%) | 796 (3,21%) |
 | Positivos esperados no teste | cerca de 689 | cerca de 1.125 | 796 (toda a base é teste) |
-| Máscara do pulmão aceitável | 95/100 | 100/100 (97/100 na leitura estrita) | 96 ou 97/100 |
+| Máscara do pulmão aceitável | 95/100 | 100/100 (97/100 na leitura estrita) | 97/100 |
 | **Situação** | **Aprovada com ressalvas** (2 faixas de qualidade) | **Aprovada** | **Aprovada** |
 
 Os três achados que mais pesam no estudo:

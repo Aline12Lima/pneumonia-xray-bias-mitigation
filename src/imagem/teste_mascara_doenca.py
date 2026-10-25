@@ -4,32 +4,41 @@ Por que: o modelo de máscara tende a marcar o pulmão com ar e a deixar de fora
 Se isso acontecer mais nos positivos, as medidas de qualidade "no pulmão" passam a refletir a doença
 (eixo A, T1/T2, eixo C) e a atenção do modelo sobre a consolidação parece "fora do pulmão" (F10).
 
-Onde roda: no notebook do workflow ``auditoria_rsna`` (tem internet para o ``git clone`` e guarda em
-``/out/rsna/`` o arquivo de anotações e a tabela de cabeçalhos do treino).
+Onde roda: no notebook do workflow ``auditoria_rsna``, na configuração gratuita (CPU). Usa os arquivos
+que a auditoria já guardou em ``/out/rsna/``: ``rsna_elegiveis.csv`` (25.403 imagens de adultos do treino
+do Kaggle) e o arquivo de anotações adjudicadas do MD.ai, com as caixas de opacidade.
 
 Desenho (fixado antes de rodar)
 -------------------------------
-- Amostra: treino do Kaggle, adultos de 18 a 100 anos, 250 imagens por célula projeção × rótulo
-  (AP-positivo, AP-negativo, PA-positivo, PA-negativo), semente 2026. Estratificar pela projeção
-  evita confundir "doença" com "AP", que já tem máscaras menores.
-- Arquivos: o nome do DICOM no Kaggle é o ``patientId`` (que identifica a imagem); as caixas do arquivo
-  de anotações são indexadas pelo ``SOPInstanceUID``, lido do próprio cabeçalho do DICOM.
-- Para cada imagem: máscara pelo procedimento oficial (``src/imagem/mascara.py``), área da máscara,
-  razão entre os pulmões e, nos positivos, a **cobertura das caixas de opacidade** desenhadas pelos
-  radiologistas (fração da área das caixas que cai dentro da máscara).
+- Amostra: entre as elegíveis (adultos de 18 a 100 anos, treino do Kaggle, sem "Exclude"),
+  250 imagens por célula projeção × rótulo (AP-positivo, AP-negativo, PA-positivo, PA-negativo),
+  semente 2026. Estratificar pela projeção evita confundir "doença" com "AP", que já tem pulmão menor.
+- Para cada imagem: máscara pelo procedimento oficial (``src/imagem/mascara.py``), área da máscara
+  e razão entre os pulmões.
+- Nos positivos: **cobertura das caixas** = fração da área das caixas de opacidade (rótulo final,
+  grupo "Calculated") que cai dentro da máscara.
+- **Referência transplantada:** todas as imagens do RSNA têm 1024 × 1024. Cada positivo é pareado,
+  por sorteio (semente 2026), com um negativo da mesma projeção; as caixas do positivo são colocadas
+  na máscara do negativo. Isso mede quanto a máscara cobriria da mesma região num pulmão sem opacidade,
+  e corrige o fato de as caixas serem retângulos que passam da borda do pulmão.
 
-Regra de decisão (proposta; confirmar antes de rodar)
------------------------------------------------------
+Regra de decisão (pré-fixada)
+-----------------------------
 A máscara é considerada **dependente da doença** se qualquer uma valer:
 
-1. Cobertura mediana das caixas nos positivos abaixo de 0,80.
+1. A mediana de (cobertura no positivo ÷ cobertura da mesma caixa no negativo pareado) fica abaixo
+   de 0,90, ou seja, a máscara perde mais de 10% da opacidade em relação a um pulmão sem doença.
 2. Em alguma projeção, a área média nos positivos é pelo menos 10% menor que nos negativos,
    com o intervalo de 95% (bootstrap por paciente) da diferença excluindo zero.
-3. A fração de imagens com razão entre pulmões abaixo de 0,35 é, nos positivos, pelo menos o dobro
-   da dos negativos e pelo menos 5 pontos percentuais maior.
+3. Em alguma projeção, a fração de imagens com razão entre pulmões abaixo de 0,35 é, nos positivos,
+   pelo menos o dobro da dos negativos e pelo menos 5 pontos percentuais maior.
 
 Se for dependente: repetir com o lungVAE na mesma amostra e escolher o modelo com maior cobertura,
 desde que ele também passe na inspeção de 100 imagens por base.
+
+Análise descritiva (não decide): brilho e contraste calculados com a máscara e com a máscara
+preenchida (envoltória convexa de cada pulmão, que devolve a opacidade deixada de fora). Mede quanto
+a diferença padronizada entre positivos e negativos muda de uma máscara para a outra.
 
 Uso (no notebook, depois do ``git clone`` do repositório):
     python -m src.imagem.teste_mascara_doenca
@@ -40,42 +49,58 @@ import argparse
 import glob
 import json
 import os
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import cv2
 import numpy as np
 import pandas as pd
 
-CLASSES = ("Lung Opacity", "No Lung Opacity / Not Normal", "Normal")
-LIMITE_COBERTURA = 0.80
+LIMITE_COBERTURA_RELATIVA = 0.90
 LIMITE_AREA_RELATIVA = 0.10
 LIMITE_RAZAO = 0.35
+COLUNAS_NECESSARIAS = ("SOPInstanceUID", "nih_paciente", "positivo", "proj", "idade")
+ID_CANDIDATOS = ("SOPInstanceUID", "subset_img_id", "img_id", "instanceId")
 
 
-# ------------------------------------------------------------------ amostra e caixas
-COLUNAS_NECESSARIAS = ("patientId", "classe_final", "proj", "idade")
+def _bool(s: pd.Series) -> pd.Series:
+    return s.astype(str).str.strip().str.lower().isin(["true", "1"])
 
 
+# ------------------------------------------------------------------ amostra, caixas e arquivos
 def amostrar(cab: pd.DataFrame, n_por_celula: int = 250, semente: int = 2026) -> pd.DataFrame:
-    """250 imagens por célula projeção × rótulo, entre adultos do treino do Kaggle com rótulo final."""
+    """250 imagens por célula projeção × rótulo, entre adultos do treino do Kaggle sem "Exclude"."""
     faltam = [c for c in COLUNAS_NECESSARIAS if c not in cab.columns]
     if faltam:
-        raise KeyError(f"faltam colunas {faltam} na tabela de cabeçalhos; colunas disponíveis: {list(cab.columns)}")
-    cab = cab.drop_duplicates("patientId")
-    if "nih_paciente" not in cab.columns:
-        print("Aviso: sem 'nih_paciente'; o bootstrap será por imagem (patientId).")
-        cab = cab.assign(nih_paciente=cab["patientId"])
-    base = cab[cab["classe_final"].isin(CLASSES) & cab["proj"].isin(["AP", "PA"])
-               & cab["idade"].between(18, 100)].copy()
-    if "kaggle_teste" in base.columns:
-        base = base[~base["kaggle_teste"].astype(str).str.lower().eq("true")]
-    base["positivo"] = base["classe_final"].eq("Lung Opacity")
+        raise KeyError(f"faltam colunas {faltam} na tabela; colunas disponíveis: {list(cab.columns)}")
+    base = cab.drop_duplicates("SOPInstanceUID").copy()
+    base["positivo"] = _bool(base["positivo"])
+    filtro = base["proj"].isin(["AP", "PA"]) & base["idade"].between(18, 100)
+    for col in ("exclude", "kaggle_teste"):
+        if col in base.columns:
+            filtro &= ~_bool(base[col])
+    base = base[filtro]
     partes = []
     for (proj, pos), g in base.groupby(["proj", "positivo"]):
         if len(g) < n_por_celula:
             raise ValueError(f"célula {proj}/{'positivo' if pos else 'negativo'} tem só {len(g)} imagens")
         partes.append(g.sample(n_por_celula, random_state=semente))
     return pd.concat(partes).reset_index(drop=True)
+
+
+def parear(amostra: pd.DataFrame, semente: int = 2026) -> dict[str, str]:
+    """Sorteia, dentro de cada projeção, um negativo diferente para cada positivo (SOPInstanceUID → SOPInstanceUID)."""
+    rng = np.random.default_rng(semente)
+    pares = {}
+    for _, g in amostra.groupby("proj"):
+        pos = g.loc[g["positivo"], "SOPInstanceUID"].tolist()
+        neg = g.loc[~g["positivo"], "SOPInstanceUID"].tolist()
+        neg = list(rng.permutation(neg))
+        if len(neg) < len(pos):
+            raise ValueError("menos negativos que positivos para parear")
+        pares.update(dict(zip(pos, neg)))
+    return pares
 
 
 def caixas_por_imagem(caminho_json: str | Path) -> dict[str, list[tuple[float, float, float, float]]]:
@@ -94,6 +119,28 @@ def caixas_por_imagem(caminho_json: str | Path) -> dict[str, list[tuple[float, f
     return caixas
 
 
+def mapear_arquivos(nomes: list[str], amostra: pd.DataFrame) -> tuple[str, dict[str, str]]:
+    """Descobre qual coluna da tabela dá o nome do arquivo DICOM. Devolve (coluna, SOPInstanceUID → nome)."""
+    # Path().stem cortaria o UID "1.2.840...": tirar só as extensões conhecidas
+    def raiz(v: str) -> str:
+        v = Path(str(v)).name
+        for ext in (".dcm", ".dicom", ".png"):
+            if v.lower().endswith(ext):
+                return v[: -len(ext)]
+        return v
+
+    por_raiz = {raiz(n): n for n in nomes}
+    for col in ID_CANDIDATOS:
+        if col not in amostra.columns:
+            continue
+        chaves = amostra[col].map(raiz)
+        achados = chaves.map(por_raiz)
+        if achados.notna().mean() > 0.99:
+            return col, dict(zip(amostra["SOPInstanceUID"].astype(str), achados))
+    raise KeyError(f"nenhuma coluna de {ID_CANDIDATOS} bate com os nomes dos arquivos; exemplos: {nomes[:3]}")
+
+
+# ------------------------------------------------------------------ geometria
 def cobertura(roi: np.ndarray, caixas: list[tuple[float, float, float, float]]) -> float:
     """Fração da área das caixas (unidas) que fica dentro da máscara. NaN se não houver caixa."""
     if not caixas:
@@ -108,6 +155,16 @@ def cobertura(roi: np.ndarray, caixas: list[tuple[float, float, float, float]]) 
     return float((roi.astype(bool) & alvo).sum() / n) if n else float("nan")
 
 
+def preencher_pulmoes(pulmoes: np.ndarray) -> np.ndarray:
+    """União das envoltórias convexas de cada pulmão: devolve a opacidade que a máscara deixou de fora."""
+    saida = np.zeros(pulmoes.shape[1:], dtype=np.uint8)
+    for m in pulmoes:
+        cont, _ = cv2.findContours(m.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if cont:
+            cv2.fillPoly(saida, [cv2.convexHull(np.vstack(cont))], 1)
+    return saida
+
+
 # ------------------------------------------------------------------ resumo e regra
 def _boot_dif_area(g: pd.DataFrame, n_boot: int, semente: int) -> tuple[float, float, float]:
     """Diferença relativa de área (positivos − negativos) / negativos, com IC 95% por bootstrap de paciente."""
@@ -120,44 +177,58 @@ def _boot_dif_area(g: pd.DataFrame, n_boot: int, semente: int) -> tuple[float, f
         return (a_pos - a_neg) / a_neg
 
     estim = dif(g)
-    reps = []
-    for _ in range(n_boot):
-        amostra = rng.choice(pacientes, size=len(pacientes), replace=True)
-        reps.append(dif(pd.concat([por_pac[p] for p in amostra])))
+    reps = [dif(pd.concat([por_pac[p] for p in rng.choice(pacientes, size=len(pacientes), replace=True)]))
+            for _ in range(n_boot)]
     lo, hi = np.nanpercentile(reps, [2.5, 97.5])
     return float(estim), float(lo), float(hi)
+
+
+def _dif_padronizada(g: pd.DataFrame, col: str) -> float:
+    a, b = g.loc[g["positivo"], col].dropna(), g.loc[~g["positivo"], col].dropna()
+    dp = np.sqrt((a.var() + b.var()) / 2)
+    return float((a.mean() - b.mean()) / dp) if dp > 0 else float("nan")
 
 
 def resumir(res: pd.DataFrame, n_boot: int = 2000, semente: int = 2026) -> dict:
     """Aplica a regra de decisão do cabeçalho e devolve números e veredito."""
     saida: dict = {"por_projecao": {}}
-    criterios = {}
+    criterios = {"1_cobertura_relativa_baixa": False, "2_area_menor_nos_positivos": False,
+                 "3_pulmao_encolhido": False}
 
     pos = res[res["positivo"]]
-    cob_med = float(pos["cobertura_caixas"].median())
-    saida["cobertura_mediana_positivos"] = cob_med
+    rel = (pos["cobertura_caixas"] / pos["cobertura_transplantada"]).replace([np.inf, -np.inf], np.nan)
+    saida["cobertura_mediana_positivos"] = float(pos["cobertura_caixas"].median())
+    saida["cobertura_mediana_transplantada"] = float(pos["cobertura_transplantada"].median())
+    saida["cobertura_relativa_mediana"] = float(rel.median())
+    saida["positivos_com_cobertura_relativa"] = int(rel.notna().sum())
     saida["fracao_positivos_cobertura_abaixo_0_5"] = float((pos["cobertura_caixas"] < 0.5).mean())
-    criterios["1_cobertura_baixa"] = cob_med < LIMITE_COBERTURA
+    criterios["1_cobertura_relativa_baixa"] = bool(rel.median() < LIMITE_COBERTURA_RELATIVA)
 
-    area_dependente = False
     for proj, g in res.groupby("proj"):
         estim, lo, hi = _boot_dif_area(g, n_boot, semente)
         raz_pos = float((g.loc[g["positivo"], "razao_pulmoes"] < LIMITE_RAZAO).mean())
         raz_neg = float((g.loc[~g["positivo"], "razao_pulmoes"] < LIMITE_RAZAO).mean())
-        saida["por_projecao"][proj] = {
-            "area_media_positivos": float(g.loc[g["positivo"], "area"].mean()),
+        gp = g[g["positivo"]]
+        info = {
+            "area_media_positivos": float(gp["area"].mean()),
             "area_media_negativos": float(g.loc[~g["positivo"], "area"].mean()),
             "diferenca_relativa_area": estim, "ic95": [lo, hi],
             "fracao_razao_abaixo_0_35_positivos": raz_pos,
             "fracao_razao_abaixo_0_35_negativos": raz_neg,
-            "cobertura_mediana_positivos": float(g.loc[g["positivo"], "cobertura_caixas"].median()),
+            "cobertura_relativa_mediana": float((gp["cobertura_caixas"] / gp["cobertura_transplantada"])
+                                                .replace([np.inf, -np.inf], np.nan).median()),
         }
+        for m in ("brilho", "contraste"):
+            if f"q_{m}_mascara" in g.columns:
+                d_masc, d_cheia = _dif_padronizada(g, f"q_{m}_mascara"), _dif_padronizada(g, f"q_{m}_preenchida")
+                info[f"descritivo_{m}"] = {"dif_padronizada_mascara": d_masc,
+                                           "dif_padronizada_preenchida": d_cheia,
+                                           "mudanca": d_cheia - d_masc}
+        saida["por_projecao"][proj] = info
         if estim <= -LIMITE_AREA_RELATIVA and hi < 0:
-            area_dependente = True
-        criterios.setdefault("3_pulmao_encolhido", False)
+            criterios["2_area_menor_nos_positivos"] = True
         if raz_pos >= 2 * raz_neg and raz_pos - raz_neg >= 0.05:
             criterios["3_pulmao_encolhido"] = True
-    criterios["2_area_menor_nos_positivos"] = area_dependente
 
     saida["criterios"] = criterios
     saida["dependente_da_doenca"] = any(criterios.values())
@@ -165,63 +236,89 @@ def resumir(res: pd.DataFrame, n_boot: int = 2000, semente: int = 2026) -> dict:
 
 
 # ------------------------------------------------------------------ execução no Redivis
-def _ler_dicom(pid: str, tabela, pasta: str):
-    import pydicom
-    locais = glob.glob(f"/scratch/rsna_dcm/**/{pid}.dcm", recursive=True)
-    if locais:
-        return pydicom.dcmread(locais[0])
-    destino = os.path.join(pasta, pid)
-    os.makedirs(destino, exist_ok=True)
-    tabela.file(f"{pid}.dcm").download(destino)
-    arq = glob.glob(f"{destino}/**/*.dcm", recursive=True)[0]
-    ds = pydicom.dcmread(arq)
-    os.remove(arq)
-    return ds
-
-
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--cabecalhos", default="/out/rsna/rsna_treino_cabecalhos.csv")
+    ap.add_argument("--tabela", default="/out/rsna/rsna_elegiveis.csv")
     ap.add_argument("--anotacoes", default="/out/rsna/pneumonia-challenge-annotations-adjudicated-kaggle_2018.json")
     ap.add_argument("--dicom", default="dicom:sjtd", help="tabela de arquivos DICOM do RSNA no Redivis")
     ap.add_argument("--n", type=int, default=250, help="imagens por célula projeção × rótulo")
     ap.add_argument("--saida", default="/out/rsna/teste_mascara_doenca")
+    ap.add_argument("--temp", default="/scratch/teste_mascara")
     a = ap.parse_args(argv)
 
+    import pydicom
     import redivis
     from src.imagem.conversao import para_8bits
     from src.imagem.mascara import razao_pulmoes, segmentar_pulmoes
+    from src.qualidade.medidas import medidas_qualidade
 
     os.makedirs(a.saida, exist_ok=True)
-    cab = pd.read_csv(a.cabecalhos)
-    amostra = amostrar(cab, a.n)
+    amostra = amostrar(pd.read_csv(a.tabela), a.n)
+    pares = parear(amostra)
     caixas = caixas_por_imagem(a.anotacoes)
-    tabela = redivis.table(a.dicom)
     print(f"Amostra: {len(amostra)} imagens | {amostra.groupby(['proj', 'positivo']).size().to_dict()}")
+    sem_caixa = [s for s in amostra.loc[amostra["positivo"], "SOPInstanceUID"] if s not in caixas]
+    print(f"Positivos sem caixa no arquivo de anotações: {len(sem_caixa)}")
+
+    tabela = redivis.table(a.dicom)
+    nomes = [f.name for f in tabela.list_files()]
+    col, nome_de = mapear_arquivos(nomes, amostra)
+    print(f"Arquivos na tabela: {len(nomes)} | nome do arquivo vem da coluna '{col}'")
+
+    os.makedirs(a.temp, exist_ok=True)
+
+    def baixar(sop):
+        destino = os.path.join(a.temp, sop)
+        if not glob.glob(f"{destino}/**/*.dcm", recursive=True):
+            os.makedirs(destino, exist_ok=True)
+            tabela.file(nome_de[sop]).download(destino)
+        return glob.glob(f"{destino}/**/*.dcm", recursive=True)[0]
 
     with ThreadPoolExecutor(8) as ex:
-        dicoms = list(ex.map(lambda s: _ler_dicom(s, tabela, "/scratch/teste_mascara"), amostra["patientId"]))
+        caminhos = dict(zip(amostra["SOPInstanceUID"], ex.map(baixar, amostra["SOPInstanceUID"])))
+    print("Download concluído; segmentando...")
 
-    linhas = []
-    for row, ds in zip(amostra.itertuples(), dicoms):
+    linhas, rois = [], {}
+    for i, row in enumerate(amostra.itertuples(), 1):
+        ds = pydicom.dcmread(caminhos[row.SOPInstanceUID])
         img8 = para_8bits(ds.pixel_array, monochrome1=ds.PhotometricInterpretation == "MONOCHROME1")
         pulmoes = segmentar_pulmoes(img8)
         roi = pulmoes.max(axis=0)
-        cx = caixas.get(str(ds.SOPInstanceUID), [])
-        if row.positivo and not cx:
-            print(f"Aviso: positivo sem caixa no arquivo de anotações: {row.patientId}")
-        linhas.append({"patientId": row.patientId, "nih_paciente": row.nih_paciente,
-                       "proj": row.proj, "positivo": bool(row.positivo),
-                       "area": float(roi.mean()), "razao_pulmoes": razao_pulmoes(pulmoes),
-                       "n_caixas": len(cx), "cobertura_caixas": cobertura(roi, cx)})
+        cheia = preencher_pulmoes(pulmoes)
+        rois[row.SOPInstanceUID] = np.packbits(roi.astype(bool))
+        qm, qc = medidas_qualidade(img8, roi), medidas_qualidade(img8, cheia)
+        linhas.append({"SOPInstanceUID": row.SOPInstanceUID, "nih_paciente": row.nih_paciente,
+                       "proj": row.proj, "positivo": bool(row.positivo), "forma": img8.shape,
+                       "area": float(roi.mean()), "area_preenchida": float(cheia.mean()),
+                       "razao_pulmoes": razao_pulmoes(pulmoes),
+                       "n_caixas": len(caixas.get(row.SOPInstanceUID, [])),
+                       "cobertura_caixas": cobertura(roi, caixas.get(row.SOPInstanceUID, [])),
+                       "q_brilho_mascara": qm["q_brilho"], "q_contraste_mascara": qm["q_contraste"],
+                       "q_brilho_preenchida": qc["q_brilho"], "q_contraste_preenchida": qc["q_contraste"]})
+        if i % 100 == 0:
+            print(f"  {i}/{len(amostra)}")
     res = pd.DataFrame(linhas)
-    res.to_csv(f"{a.saida}/resultado_por_imagem.csv", index=False)
+
+    formas = {s: f for s, f in zip(res["SOPInstanceUID"], res["forma"])}
+    transpl = []
+    for sop in res["SOPInstanceUID"]:
+        neg = pares.get(sop)
+        if neg is None or formas[sop] != formas[neg]:
+            transpl.append(np.nan)
+            continue
+        roi_neg = np.unpackbits(rois[neg])[: np.prod(formas[neg])].reshape(formas[neg])
+        transpl.append(cobertura(roi_neg, caixas.get(sop, [])))
+    res["negativo_pareado"] = res["SOPInstanceUID"].map(pares)
+    res["cobertura_transplantada"] = transpl
+    res.drop(columns="forma").to_csv(f"{a.saida}/resultado_por_imagem.csv", index=False)
 
     resumo = resumir(res)
+    resumo["coluna_do_nome_do_arquivo"] = col
     json.dump(resumo, open(f"{a.saida}/resumo.json", "w", encoding="utf-8"), indent=2, ensure_ascii=False)
     print(json.dumps(resumo, indent=2, ensure_ascii=False))
+    shutil.rmtree(a.temp, ignore_errors=True)
     print(f"\nVeredito: a máscara {'DEPENDE' if resumo['dependente_da_doenca'] else 'NÃO depende'} da doença "
-          f"pela regra pré-fixada | saída em {a.saida}")
+          f"pela regra pré-fixada | saída em {a.saida} | arquivos temporários apagados")
     return 0
 
 

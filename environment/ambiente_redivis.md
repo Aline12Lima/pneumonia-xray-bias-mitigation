@@ -60,6 +60,7 @@ DenseNet121 com pesos ImageNet, 320 px, lote 16, 1.000 imagens sintéticas.
 |---|---|---|---|
 | CPU (notebook gratuito) | Passou: 8 de 8 conferências | 25/10/2026 | b10a58e |
 | GPU NVIDIA L4 | Passou: 8 de 8 conferências | 25/10/2026 | b10a58e |
+| CPU (notebook gratuito), com as oito medidas (F3, passo 3.12) | Passou: 9 de 9 conferências, incluindo `medidas_qualidade_completas`; máscara 46,6 s e medidas 0,65 s para 100 imagens | 25/10/2026 | 1c97467 |
 
 A máscara ficou vazia em 100% das imagens fictícias. Isso é esperado: o modelo foi treinado em radiografias reais. A qualidade da máscara em imagens reais foi medida nas auditorias.
 
