@@ -31,8 +31,8 @@ def _maior_componente(m: np.ndarray) -> np.ndarray:
     return (lab == k).astype(np.uint8)
 
 
-def segmentar(img8: np.ndarray, limiar: float = 0.2, dispositivo: str = "cpu") -> np.ndarray:
-    """Devolve a máscara (0/1) no tamanho de img8."""
+def segmentar_pulmoes(img8: np.ndarray, limiar: float = 0.2, dispositivo: str = "cpu") -> np.ndarray:
+    """Devolve as máscaras dos dois pulmões separadas, forma (2, H, W), no tamanho de img8."""
     modelo = carregar_modelo(dispositivo)
     x = np.repeat(img8[..., None], 3, axis=2).astype(np.float32)
     x = (x - x.min()) / max(float(x.max() - x.min()), 1e-6)
@@ -40,9 +40,20 @@ def segmentar(img8: np.ndarray, limiar: float = 0.2, dispositivo: str = "cpu") -
     t = torch.from_numpy(x.transpose(2, 0, 1)).unsqueeze(0).to(dispositivo)
     with torch.no_grad():
         p = torch.sigmoid(modelo(t))[0].cpu().numpy()
-    pulmoes = np.stack([_maior_componente(m) for m in (p > limiar)])
-    roi = pulmoes.max(axis=0)
-    return cv2.resize(roi, (img8.shape[1], img8.shape[0]), interpolation=cv2.INTER_NEAREST)
+    pulmoes = [_maior_componente(m) for m in (p > limiar)]
+    return np.stack([cv2.resize(m, (img8.shape[1], img8.shape[0]), interpolation=cv2.INTER_NEAREST)
+                     for m in pulmoes])
+
+
+def segmentar(img8: np.ndarray, limiar: float = 0.2, dispositivo: str = "cpu") -> np.ndarray:
+    """Devolve a máscara (0/1) no tamanho de img8: a união dos dois pulmões."""
+    return segmentar_pulmoes(img8, limiar, dispositivo).max(axis=0)
+
+
+def razao_pulmoes(pulmoes: np.ndarray) -> float:
+    """Área do pulmão menor dividida pela do maior (0 a 1). Abaixo de 0,35 indica um pulmão encolhido."""
+    a = pulmoes.reshape(2, -1).sum(axis=1).astype(float)
+    return float(a.min() / a.max()) if a.max() > 0 else float("nan")
 
 
 def mascara_central(forma: tuple[int, int], margem: float = 0.15) -> np.ndarray:

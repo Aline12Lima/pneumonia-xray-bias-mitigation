@@ -54,7 +54,7 @@ DenseNet121 com pesos ImageNet, 320 px, lote 16, 1.000 imagens sintéticas.
 
 ## Teste de fumaça (F2, passo 7)
 
-`python -m src.fumaca`: 100 imagens fictícias passam por conversão, 320 px, máscara do pulmão, medidas de qualidade provisórias, divisão por paciente, 1 época de DenseNet121, predição, correção de prior e tabela de predições conferida pelo schema.
+`python -m src.fumaca`: 100 imagens fictícias passam por conversão, 320 px, máscara do pulmão, as oito medidas de qualidade (§6, `src/qualidade/medidas.py`), divisão por paciente, 1 época de DenseNet121, predição, correção de prior e tabela de predições conferida pelo schema.
 
 | Máquina | Resultado | Data | Commit |
 |---|---|---|---|
