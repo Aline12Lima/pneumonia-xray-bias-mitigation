@@ -7,7 +7,7 @@ dev = "cuda" if torch.cuda.is_available() else "cpu"
 if dev == "cpu":
     torch.set_num_threads(os.cpu_count())
 
-N, LOTE, PX = 1000, 16, 320
+N, LOTE, PX = 1000, 32, 320   # lote 32 = receita do protocolo (§7.2); a medição em CPU de 24/10 usou 16
 modelo = torchvision.models.densenet121(weights="IMAGENET1K_V1")
 modelo.classifier = torch.nn.Linear(modelo.classifier.in_features, 1)
 modelo = modelo.to(dev).to(memory_format=torch.channels_last)

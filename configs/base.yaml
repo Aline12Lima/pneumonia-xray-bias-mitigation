@@ -1,0 +1,93 @@
+# Configuração base de treino e avaliação — receita comum do protocolo v1.0 (§5, §6, §7.2, §7.3, §9)
+#
+# Como usar: cada execução parte deste arquivo e muda só o que varia por treino
+# (modelo, semente, taxa de aprendizado). O código salva a configuração final
+# de cada execução junto com a tabela de predições.
+#
+# Valores marcados "PENDENTE" ainda não têm valor no protocolo.
+# Eles são fechados no congelamento (F4, até 31/10) e não podem ser inventados aqui.
+# Enquanto estiverem nulos, o treino real não roda; só o teste de fumaça.
+
+projeto:
+  protocolo: "v1.0"            # vira "v1.1" no congelamento
+  fontes: configs/fontes_redivis.yaml
+
+# ------------------------------------------------------------------ dados
+divisao:                       # §5
+  unidade: paciente
+  proporcoes: {treino: 0.70, validacao: 0.10, teste: 0.20}
+  semente: 2026
+  estratificada_por: rotulo
+  listas: data/splits/         # listas de IDs com SHA-256; o teste fica trancado até 21/11
+
+imagem:                        # §6 e §7.2
+  vistas: [AP, PA]
+  uma_frontal_por_estudo: true
+  conversao_8bits:
+    metodo: percentis          # mesma regra nas três bases
+    p_baixo: 0.5
+    p_alto: 99.5
+    inverter_monochrome1: true
+  equalizacao: false           # sem CLAHE nem normalização por imagem
+  tamanho_px: 320
+  redimensionamento: direto_320x320   # sem manter proporção, igual ao cache do PadChest
+  canais: 3                    # canal único replicado em 3
+  normalizacao: imagenet       # média e desvio do ImageNet
+
+aumento:                       # §7.2 — só geométrico; nenhum fotométrico (o eixo B depende disso)
+  escala: [0.9, 1.0]
+  rotacao_graus: 5
+  fotometrico: false
+
+# ------------------------------------------------------------------ modelo e treino
+modelo:                        # §7.1
+  arquitetura: densenet121
+  pesos: imagenet              # torchvision IMAGENET1K_V1
+  saida: 1                     # logit de pneumonia
+
+treino:                        # §7.2
+  perda: bce
+  otimizador: adamw
+  weight_decay: 1.0e-4
+  lote: 32
+  agenda: cosseno
+  epocas_max: 30
+  parada_antecipada: {metrica: auprc_validacao_fonte, paciencia: 5}
+  taxa_aprendizado: null       # escolhida na busca abaixo; cada execução recebe um valor
+  busca_taxa: [1.0e-4, 3.0e-4] # mesma grade para M1, M2 e M3, semente 0
+  sementes: [0, 1, 2, 3, 4]
+  precisao_mista: true         # só em GPU
+  checkpoint_por_epoca: true   # o notebook do Redivis tem limite de 6 h
+
+negativos:                     # §5 e §7.2
+  subamostrar_no_treino: true
+  razao_neg_por_pos: null      # PENDENTE (F4, passo 4.3)
+  correcao_prior: logit        # logit + ln(pi_nat/(1-pi_nat)) - ln(pi_treino/(1-pi_treino))
+  validacao_com_prevalencia_natural: true
+
+# ------------------------------------------------------------------ modelos (§7.3)
+modelos:
+  M1: {treino: [chexpert_plus], teste_interno: [chexpert_plus], teste_externo: [rsna, padchest]}
+  M2: {treino: [rsna],          teste_interno: [rsna],          teste_externo: [chexpert_plus, padchest]}
+  M3: {treino: [chexpert_plus, rsna], amostragem: balanceada_por_fonte,
+       teste_interno: [chexpert_plus, rsna], teste_externo: [padchest]}
+
+# ------------------------------------------------------------------ pós-treino
+limiar:                        # §7.2
+  criterio: sensibilidade
+  alvo: 0.90
+  ajustado_em: validacao_fonte # M3: validação conjunta
+  reaplicado_no_externo: true
+
+calibracao:                    # §7.2 e §9
+  ece: {bins: 15, tipo: igual_massa}
+  temperatura: {ajustada_em: validacao_fonte}
+
+# ------------------------------------------------------------------ saída
+saida:
+  tabela_predicoes: results/predicoes/   # schema em configs/schema_predicoes.yaml (F2, passo 6)
+  salvar_config_resolvida: true
+
+contingencia_recursos:         # §11 — usar só com decisão registrada
+  tamanho_px: 224
+  sementes: [0, 1, 2]
