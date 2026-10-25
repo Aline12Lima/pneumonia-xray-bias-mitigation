@@ -50,6 +50,7 @@ Todas as decisões do projeto num só lugar, nomeadas por **Fase › Base › Te
 | F3 › Todas › Conversão | Mínimo-máximo por percentis 0,5–99,5 nas três bases, com inversão de MONOCHROME1. Janelas (GE no Plus, CSV reescalado no PadChest) como sensibilidade | O mínimo-máximo puro "lava" imagens com pixels extremos; regra única evita que a conversão acompanhe o fabricante | Proposta | `chexpert_plus_final.md`, `padchest_final.md` | D-030 (Plus) |
 | F3 › Todas › Máscara | `lungs-segmentation` resnet34 (treinado só em Montgomery e Shenzhen), mesmo procedimento nas três bases; máscara central fixa como sensibilidade | Comparação justa; o CheXmask viu o PadChest e o TorchXRayVision viu o NIH | Proposta (pendente o teste da máscara nos positivos) | As três auditorias finais | D-036 (Plus), substitui D-031 (RSNA) |
 | F3 › Todas › Redação | "Qualidade e apresentação nas imagens distribuídas", não "na aquisição" | Nenhuma base prova que a imagem não foi processada | Proposta | As três auditorias finais | D-035 (Plus) |
+| F3 › Todas › Medidas de qualidade | As oito medidas da §6 calculadas na resolução original, sobre a imagem já convertida para 8 bits, dentro da máscara do pulmão (`src/qualidade/medidas.py`). Detalhes que o protocolo deixava em aberto: saturação = pixels ≤ 1 ou ≥ 254; enquadramento = fração da imagem em regiões pretas (≤ 5) ligadas à borda; amplitude = p95 − p5; entropia em bits (256 tons); nitidez = variância do Laplaciano 3 × 3; ruído = 1,4826 × MAD do resíduo (imagem − gaussiana σ = 1,5) nos 20% de pixels mais homogêneos da máscara. Auxiliares só descritivas (prefixo `q_aux_`): área da máscara e saturação nativa (pixels no mínimo ou máximo da imagem original) | Fixar as definições antes de olhar os dados; a saturação nativa recupera o teto do aparelho que a conversão por percentis esconde | Proposta | `src/qualidade/medidas.py` | — |
 | F3 › Todas › Passada completa | Medidas de qualidade, duplicatas por pixel e resumo de resolução feitos na mesma passada que gera o cache de 320 px | As duas tarefas leem as mesmas imagens | Proposta | `chexpert_plus_final.md` | D-037 (Plus) |
 | F2 › Todas › Ambiente | Notebooks do Redivis, processamento em fluxo (baixar, processar, guardar o derivado, apagar o original), 8 downloads simultâneos | Disco de 60 GB por notebook; 54,4 MB/s com 8 downloads | Proposta | `chexpert_plus_final.md` | D-024 (Plus) |
 
@@ -90,6 +91,7 @@ Todas as decisões do projeto num só lugar, nomeadas por **Fase › Base › Te
 | F3 › PadChest › Termos | Dados sempre privados; publicar só resultados agregados e código; link de download não compartilhado | Cláusulas 5, 6 e 7 do acordo de uso | Proposta | — |
 | F3 › PadChest › Exclusões | Fora dos pacotes escolhidos; idade fora de 18 a 100; não frontais; "exclude"; sexo "O" | Recorte e regras comuns | Proposta | — |
 | F3 › PadChest › Escala | PNG reescalados para 16 bits; janela do CSV só vale depois da conversão | Medido nas 24.773 imagens | Proposta | — |
+| F3 › PadChest › Segunda passada | Baixar de novo os 13 pacotes, um por vez, para calcular as medidas na resolução original e comparar as duas conversões (percentis e janela do CSV reescalada); guardar só as medidas e apagar cada pacote | As originais de 16 bits foram apagadas depois da conversão; o protocolo exige as medidas na resolução original e duas conversões no PadChest | Tomada | — |
 | F3 › PadChest › Fabricante | Análises de qualidade e física sempre dentro do fabricante | Saturação, fabricante e prevalência andam juntos | Proposta | — |
 
 ---
@@ -99,6 +101,6 @@ Todas as decisões do projeto num só lugar, nomeadas por **Fase › Base › Te
 | Tema | O que falta decidir |
 |---|---|
 | F3 › Todas › Máscara × doença | Se a máscara encolhe nos positivos (teste com 500 positivos e 500 negativos do RSNA); se sim, testar o lungVAE |
-| F3 › PadChest › Resolução das medidas | Baixar os 282 GB de novo para medir na resolução original, ou medir na resolução reduzida |
+| F3 › PadChest › Máscara (caso #43) | Confirmar se o #43 é falha (96/100) ou aceitável (97/100) |
 | F4 › Todas › Receita | Razão de subamostragem de negativos; resolução em que as degradações são aplicadas |
 | F4 › Todas › Testes primários | Lista nominal da família corrigida por Holm |

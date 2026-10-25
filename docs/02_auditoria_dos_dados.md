@@ -311,7 +311,7 @@ O RSNA não registra fabricante.
 | Pendência | Bloqueia a aprovação das bases? | Quando |
 |---|---|---|
 | Testar se a máscara encolhe nos positivos; se sim, testar o lungVAE | Não, mas pode mudar uma decisão | Antes de 31/10 |
-| Medidas de qualidade (as 8 features) nas três bases | Não | Passada completa. No PadChest, exige baixar os 282 GB de novo para medir na resolução original, ou registrar a medida em resolução reduzida |
+| Medidas de qualidade (as 8 features) nas três bases | Não | Código pronto (`src/qualidade/medidas.py`). Passada completa nas três bases; no PadChest, segunda passada pelos 13 pacotes (F3 › PadChest › Segunda passada) |
 | Duplicatas por pixel nas três bases | Não | Na mesma passada |
 | Rótulos do rotulador CheXpert no Plus | Não | Download do CSV do CheXpert 1.0 |
 | Raça e etnia no Plus | Não | Descrição na composição |

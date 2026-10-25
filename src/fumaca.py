@@ -4,7 +4,7 @@ Prova que o encanamento roda do zero com um comando, com 100 imagens FICTÍCIAS
 (nenhum dado real é lido):
 
     imagens 16 bits → conversão para 8 bits → 320 px → máscara do pulmão
-    → medidas de qualidade (provisórias) → divisão por paciente → 1 época de DenseNet121
+    → medidas de qualidade (§6) → divisão por paciente → 1 época de DenseNet121
     → predição → correção de prior → tabela de predições conferida pelo schema
 
 Uso (na raiz do repositório):
@@ -33,7 +33,7 @@ from torch.utils.data import DataLoader
 from src.imagem.conversao import para_8bits, redimensionar
 from src.imagem import mascara as masc
 from src.predicoes.schema import validar
-from src.qualidade.provisorio import medidas_provisorias
+from src.qualidade.medidas import COLUNAS as COLUNAS_QUALIDADE, medidas_qualidade
 from src.treino.dados import ImagensRX
 from src.treino.modelo import correcao_prior, criar_densenet121, fixar_sementes
 
@@ -153,8 +153,9 @@ def main(argv=None) -> int:
     checks["mascara_rodou"] = len(rois) == a.n
 
     etapa("medidas_qualidade")
-    q = pd.DataFrame([medidas_provisorias(g, r) for g, r in zip(img8_orig, rois)])
+    q = pd.DataFrame([medidas_qualidade(g, r, b) for g, r, b in zip(img8_orig, rois, brutas)])
     fim("medidas_qualidade")
+    checks["medidas_qualidade_completas"] = list(q.columns) == COLUNAS_QUALIDADE
     del brutas, img8_orig
 
     meta["particao"] = dividir_por_paciente(meta, cfg["divisao"]["proporcoes"], cfg["divisao"]["semente"])
