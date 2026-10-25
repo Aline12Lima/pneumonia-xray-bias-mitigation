@@ -1,0 +1,26 @@
+# Fontes de dados no Redivis — workflow pneumonia_pipeline (usuária ads_alinelima)
+# Referências qualificadas (nome:id) conferidas em 25/10/2026 no notebook 01_infraestrutura.
+# Só referências e contagens; nenhum dado sai do Redivis.
+
+workflow: pneumonia_pipeline
+
+fontes:
+  chexpert_plus:
+    dataset: "CheXpert Plus v1.0 (Stanford AIMI)"
+    tabelas:
+      metadados:    {ref: "df_chexpert_plus_240401:bavj", linhas: 223462}
+      rotulos:      {ref: "chexpert_labels:pmec",         linhas: 3}       # arquivos de rótulo (CheXbert)
+      dicom_treino: {ref: "dicom_train:1934",             linhas: 210740}  # índice de arquivos DICOM
+      dicom_valid:  {ref: "dicom_valid:mg73",             linhas: 229}
+
+  rsna:
+    dataset: "rsna_pneumonia_2018 v1.0 (ads_alinelima)"
+    tabelas:
+      dicom:   {ref: "dicom:sjtd",   linhas: 30000}   # índice de arquivos DICOM
+      rotulos: {ref: "rotulos:wpmr", linhas: 30000}   # rótulo final adjudicado + paciente NIH
+
+  padchest:
+    dataset: "padchest (ads_alinelima), versão next, não publicada — uso restrito (termo BIMCV)"
+    tabelas:
+      c320: {ref: "c320:at46", linhas: 24773}   # 320x320, 16 bits, sem conversão; recorte do teste externo
+      csv:  {ref: "PADCHEST_chest_xray_images_labels_160K_01.02.19.csv", linhas: 160861}
