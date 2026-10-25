@@ -1,0 +1,4 @@
+# Pacotes que o pipeline instala por cima da imagem do Redivis (requirements_redivis_freeze.txt).
+# A máscara do pulmão (lungs-segmentation==1.1.2) é instalada à parte, com --no-deps,
+# porque o pacote fixa versões antigas de torch.
+opencv-python-headless==4.10.0.84
