@@ -38,11 +38,29 @@ DenseNet121 com pesos ImageNet, 320 px, lote 16, 1.000 imagens sintéticas.
 | Máquina | Treino | Inferência | Data |
 |---|---|---|---|
 | CPU, 16 threads, sem AMP | 166,7 s (6,0 img/s) | 39,5 s (25,3 img/s) | 24/10/2026 |
-| GPU | a medir | a medir | — |
+| GPU NVIDIA L4 (23 GB), g2-standard-4, lote 32, precisão mista | 4,9 s (205,7 img/s) | 1,6 s (624,1 img/s) | 25/10/2026 |
 
-**Estimativa em CPU para os 21 treinos** (cerca de 15 épocas por treino; razão de negativos 1:4 no Plus): cerca de 11 h para o M1, 13 h para o M2 e 24 h para o M3. Somando a busca de taxa e as 5 sementes, dá cerca de 330 h, ou 14 dias de máquina ligada sem parar. Isso não cabe no prazo de 1 a 20/11 com folga. Conclusão: **o treino precisa de GPU**.
+**Estimativa em CPU para os 21 treinos** (cerca de 15 épocas por treino; razão de negativos 1:4 no Plus): cerca de 11 h para o M1, 13 h para o M2 e 24 h para o M3. Somando a busca de taxa e as 5 sementes, dá cerca de 330 h, ou 14 dias de máquina ligada sem parar. Isso não cabe no prazo de 1 a 20/11. Conclusão: **o treino precisa de GPU**.
 
-## Pendente
+## Decisão de GPU (F2)
 
-- Tempo de 1 época em GPU (mesmo script) e custo por hora da máquina.
-- Escolha da máquina com GPU e orçamento em créditos para os 21 treinos.
+- **Máquina:** NVIDIA L4, g2-standard-4 (1 GPU, 4 vCPUs, 16 GB de RAM), no próprio Redivis. Os dados do CheXpert Plus não podem sair do Redivis.
+- **Velocidade:** a L4 treina cerca de 34 vezes mais rápido que a CPU (205,7 contra 6,0 imagens por segundo).
+- **Estimativa para os 21 treinos:** cerca de 10 h de GPU. Usando o dobro como margem, porque a leitura das imagens com só 4 vCPUs pode limitar a velocidade, o total fica entre 10 e 20 h.
+- **Custo:** 4,53 créditos/h no Spot e 7,55 créditos/h no Standard. Cada crédito custa US$ 0,10. Total previsto: de 45 a 90 créditos no Spot, ou de 75 a 150 no Standard. A primeira compra foi de 100 créditos, em 25/10/2026.
+- **Spot ou Standard:** fica para a F5. O piloto mede o tempo real de um treino. Como o checkpoint é salvo a cada época, dá para usar o Spot sem perder mais de uma época se a máquina cair.
+- **Limite de 6 h por sessão:** cada treino leva bem menos que isso na L4 (o M3, o maior, deve ficar abaixo de 1 h).
+- **Regra de uso:** a configuração com GPU só fica ligada enquanto roda; depois volta para a gratuita.
+
+## Teste de fumaça (F2, passo 7)
+
+`python -m src.fumaca`: 100 imagens fictícias passam por conversão, 320 px, máscara do pulmão, medidas de qualidade provisórias, divisão por paciente, 1 época de DenseNet121, predição, correção de prior e tabela de predições conferida pelo schema.
+
+| Máquina | Resultado | Data | Commit |
+|---|---|---|---|
+| CPU (notebook gratuito) | Passou: 8 de 8 conferências | 25/10/2026 | b10a58e |
+| GPU NVIDIA L4 | Passou: 8 de 8 conferências | 25/10/2026 | b10a58e |
+
+A máscara ficou vazia em 100% das imagens fictícias. Isso é esperado: o modelo foi treinado em radiografias reais. A qualidade da máscara em imagens reais foi medida nas auditorias.
+
+Pacotes instalados por cima da imagem do Redivis: `environment/requirements_extra.txt` (OpenCV) e `lungs-segmentation==1.1.2`, instalado com `--no-deps`.
