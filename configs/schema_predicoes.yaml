@@ -1,0 +1,46 @@
+# Schema da tabela de predições — protocolo v1.0 §7.4 (F2, passo 6)
+#
+# Toda avaliação (validação, teste interno, teste externo, degradações do eixo B)
+# grava uma tabela com estas colunas. Todas as análises partem dessa tabela.
+# O código em src/predicoes/schema.py confere cada tabela contra este arquivo.
+#
+# tipos: texto | inteiro | real | booleano
+# nulo: true = a coluna existe sempre, mas pode vir vazia (ex.: fabricante no RSNA)
+
+versao: 1
+
+colunas:
+  # --- identificação (§7.4)
+  id_imagem:       {tipo: texto,   nulo: false}
+  id_paciente:     {tipo: texto,   nulo: false}
+  id_estudo:       {tipo: texto,   nulo: false}
+  fonte:           {tipo: texto,   nulo: false, valores: [chexpert_plus, rsna, padchest]}
+  particao:        {tipo: texto,   nulo: false, valores: [treino, validacao, teste]}
+
+  # --- execução (§7.4)
+  modelo:          {tipo: texto,   nulo: false, valores: [M1, M2, M3]}
+  semente:         {tipo: inteiro, nulo: false, min: 0, max: 4}
+  id_execucao:     {tipo: texto,   nulo: false}   # liga a linha à configuração salva da execução
+
+  # --- condição de avaliação (eixo B, §8.4; "nenhuma" fora da F8)
+  degradacao:      {tipo: texto,   nulo: false, valores: [nenhuma, gama, contraste, brilho, desfoque, ruido, resolucao]}
+  nivel:           {tipo: texto,   nulo: false}   # "0" sem degradação; p25, p10, p5, p75, p90, p95, alem
+
+  # --- rótulo e saída do modelo (§7.4)
+  rotulo:          {tipo: inteiro, nulo: false, valores: [0, 1]}
+  logit:           {tipo: real,    nulo: false}   # logit já com a correção de prior
+  probabilidade:   {tipo: real,    nulo: false, min: 0.0, max: 1.0}   # sigmoide do logit
+  probabilidade_temperatura: {tipo: real, nulo: true, min: 0.0, max: 1.0}   # depois da temperatura (F6)
+
+  # --- covariáveis (§7.4)
+  posicao:         {tipo: texto,   nulo: false, valores: [AP, PA]}
+  idade:           {tipo: inteiro, nulo: false, min: 18, max: 100}
+  sexo:            {tipo: texto,   nulo: false, valores: [F, M]}
+  fabricante:      {tipo: texto,   nulo: true}
+
+# Medidas de qualidade (§6): uma coluna por medida, com o prefixo "q_" (ex.: q_brilho).
+# Os nomes finais vêm do código das medidas; até lá a tabela pode não ter nenhuma.
+prefixo_qualidade: "q_"
+
+# Regras entre linhas
+unicidade: [id_imagem, modelo, semente, degradacao, nivel]   # uma linha por imagem em cada condição
