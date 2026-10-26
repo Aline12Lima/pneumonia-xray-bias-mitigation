@@ -302,7 +302,7 @@ O RSNA não registra fabricante.
 - **Projeção:** a prevalência muda de direção entre bases (seção 8.1). Medido pelo teste T1 contra uma linha de base só com a projeção.
 - **Texto gravado na imagem:** algumas imagens AP do RSNA têm "PORTABLE" escrito no pixel.
 - **Fabricante e saturação:** no PadChest, o Imaging Dynamics satura o branco e tem um terço da prevalência do Philips.
-- **Máscara que encolhe na doença:** o modelo de máscara tende a deixar de fora o pulmão opacificado. Se isso acontecer mais nos positivos, as medidas de qualidade "no pulmão" passam a refletir a doença. A ser testado antes do congelamento (500 positivos e 500 negativos do RSNA).
+- **Máscara que encolhe na doença:** o modelo de máscara tende a deixar de fora o pulmão opacificado. Se isso acontecer mais nos positivos, as medidas de qualidade "no pulmão" passam a refletir a doença. **Testado em 26/10** no RSNA, com 1.000 imagens e regra fixada antes: a máscara não depende da doença (detalhes em `auditorias/rsna_final.md` §8.2). Fica a observação de que o brilho dentro do pulmão é maior nos positivos com qualquer máscara, porque a opacidade é clara: decisão aberta para a F4.
 
 ---
 
@@ -310,7 +310,6 @@ O RSNA não registra fabricante.
 
 | Pendência | Bloqueia a aprovação das bases? | Quando |
 |---|---|---|
-| Testar se a máscara encolhe nos positivos; se sim, testar o lungVAE | Não, mas pode mudar uma decisão | Antes de 31/10 |
 | Medidas de qualidade (as 8 features) nas três bases | Não | Código pronto (`src/qualidade/medidas.py`). Passada completa nas três bases; no PadChest, segunda passada pelos 13 pacotes (F3 › PadChest › Segunda passada) |
 | Duplicatas por pixel nas três bases | Não | Na mesma passada |
 | Rótulos do rotulador CheXpert no Plus | Não | Download do CSV do CheXpert 1.0 |

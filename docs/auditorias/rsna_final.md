@@ -194,6 +194,22 @@ Um modelo treinado no RSNA pode aprender o atalho "imagem AP → pneumonia". No 
 
 **Limitação:** o modelo marca o pulmão **com ar** e tende a deixar de fora o pulmão opacificado, o mesmo padrão visto no CheXpert Plus. Se a máscara encolher mais nos positivos, as medidas feitas dentro dela passam a refletir a doença. A comparação entre a área da máscara e o rótulo é obrigatória na passada completa, e a máscara central fixa fica como análise de sensibilidade.
 
+**Teste da máscara nos positivos (26/10/2026):** 1.000 imagens elegíveis, 250 em cada célula projeção × rótulo, semente 2026, com a regra de decisão fixada antes de rodar (`src/imagem/teste_mascara_doenca.py`). Resultado: **a máscara não depende da doença** pela regra.
+
+| Critério | Limite | AP | PA | Atingido? |
+|---|---|---|---|---|
+| 1. Cobertura das caixas no positivo ÷ mesma caixa num negativo pareado (mediana) | abaixo de 0,90 | 1,22 | 1,06 | Não (geral: 1,14) |
+| 2. Área da máscara nos positivos em relação aos negativos | 10% menor, IC excluindo zero | −4,5% (IC −8,9% a +0,1%) | −4,7% (IC −8,2% a −1,0%) | Não |
+| 3. Pulmão encolhido (razão abaixo de 0,35): positivos contra negativos | 2 vezes e 5 pontos a mais | 5,2% contra 1,6% | 1,2% contra 0,8% | Não |
+
+Ressalvas para a leitura:
+
+- **A referência transplantada é conservadora:** a caixa colocada no pulmão de outro paciente nem sempre cai no mesmo lugar da anatomia. Por isso a cobertura de referência (mediana 0,62) é menor que a dos positivos (0,74), e a razão passa de 1. O critério mostra que não há perda sistemática, não que a máscara cobre melhor a opacidade.
+- **Existe uma cauda:** 17% dos positivos têm menos da metade da caixa dentro da máscara. São os casos muito opacos vistos nas inspeções (o pulmão doente vira uma ilha). A mediana não os captura.
+- **A área é um pouco menor nos positivos** (cerca de 5%, com IC excluindo zero no PA). Fica abaixo da margem de 10%; pode ser inspiração menor nos doentes ou perda de borda.
+- **Impacto nas medidas, descritivo:** preencher a máscara (envoltória convexa de cada pulmão) quase não muda a diferença de brilho entre positivos e negativos (variação de −0,01 desvio-padrão no AP e −0,01 no PA). No contraste, a variação é de −0,05 no AP e −0,14 no PA. A máscara central fixa continua como análise de sensibilidade.
+- **Observação para a F4:** o brilho dentro do pulmão é maior nos positivos com as duas máscaras (diferença padronizada de 0,39 no AP e 0,16 no PA). Parte do "brilho" é a própria opacidade, e não a apresentação da imagem. Registrado como decisão aberta (F4 › Todas › Brilho e opacidade).
+
 ### 8.3 Máscara anterior (CheXmask)
 
 Na auditoria de 18/10, a máscara do RSNA veio do **CheXmask** (máscaras prontas do modelo HybridGNet, treinado em JSRT, Montgomery, Shenzhen e uma parte do PadChest), com nota de qualidade de pelo menos 0,7 e 98 a 100 aceitáveis em 100. A avaliação mostrou falhas sistemáticas nas bases e nos cantos do pulmão, sem relação com o brilho (teste exato de Fisher, p = 1,0). **Foi substituída** pelo modelo único, porque o CheXmask viu imagens do PadChest no treino e não poderia ser usado nele.
