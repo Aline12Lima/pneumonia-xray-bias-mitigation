@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
-import torch
 
 _MODELO = None
 
@@ -33,6 +32,8 @@ def _maior_componente(m: np.ndarray) -> np.ndarray:
 
 def segmentar_pulmoes(img8: np.ndarray, limiar: float = 0.2, dispositivo: str = "cpu") -> np.ndarray:
     """Devolve as máscaras dos dois pulmões separadas, forma (2, H, W), no tamanho de img8."""
+    import torch  # só aqui: o resto do módulo (razão entre pulmões, máscara central) funciona sem PyTorch
+
     modelo = carregar_modelo(dispositivo)
     x = np.repeat(img8[..., None], 3, axis=2).astype(np.float32)
     x = (x - x.min()) / max(float(x.max() - x.min()), 1e-6)
