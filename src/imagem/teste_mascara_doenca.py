@@ -50,6 +50,7 @@ import glob
 import json
 import os
 import shutil
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -236,6 +237,14 @@ def resumir(res: pd.DataFrame, n_boot: int = 2000, semente: int = 2026) -> dict:
 
 
 # ------------------------------------------------------------------ execução no Redivis
+def baixar_arquivo(arquivo, destino: str) -> None:
+    """Baixa um arquivo do Redivis sem barra de progresso (versões antigas do pacote não têm a opção)."""
+    try:
+        arquivo.download(destino, progress=False)
+    except TypeError:
+        arquivo.download(destino)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--tabela", default="/out/rsna/rsna_elegiveis.csv")
@@ -261,7 +270,10 @@ def main(argv=None) -> int:
     print(f"Positivos sem caixa no arquivo de anotações: {len(sem_caixa)}")
 
     tabela = redivis.table(a.dicom)
-    nomes = [f.name for f in tabela.list_files()]
+    # Usar os próprios objetos da listagem: tabela.file(nome) falha no RSNA, porque o caminho
+    # guardado no Redivis não é igual ao nome que a listagem mostra.
+    arquivos = {f.name: f for f in tabela.list_files()}
+    nomes = list(arquivos)
     col, nome_de = mapear_arquivos(nomes, amostra)
     print(f"Arquivos na tabela: {len(nomes)} | nome do arquivo vem da coluna '{col}'")
 
@@ -269,9 +281,17 @@ def main(argv=None) -> int:
 
     def baixar(sop):
         destino = os.path.join(a.temp, sop)
-        if not glob.glob(f"{destino}/**/*.dcm", recursive=True):
+        for tentativa in range(4):
+            achados = glob.glob(f"{destino}/**/*.dcm", recursive=True)
+            if achados:
+                return achados[0]
             os.makedirs(destino, exist_ok=True)
-            tabela.file(nome_de[sop]).download(destino)
+            try:
+                baixar_arquivo(arquivos[nome_de[sop]], destino)
+            except Exception as erro:  # rede instável: tenta de novo com espera crescente
+                if tentativa == 3:
+                    raise RuntimeError(f"falhou ao baixar {nome_de[sop]}") from erro
+                time.sleep(2 ** tentativa)
         return glob.glob(f"{destino}/**/*.dcm", recursive=True)[0]
 
     with ThreadPoolExecutor(8) as ex:
