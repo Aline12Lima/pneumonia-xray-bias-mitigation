@@ -203,7 +203,7 @@ A auditoria (etapa 02) não mudou a pergunta, mas mudou o peso de algumas partes
 | Fabricante, saturação e prevalência andam juntos no PadChest (Imaging Dynamics: 59% das imagens com saturação e 1,24% de pneumonia; Philips: 0% e 3,90%) e fabricante e projeção andam juntos no Plus | Análises de qualidade sempre dentro do fabricante; declarar que, no Plus, posição e fabricante não se separam |
 | Os rótulos medem coisas diferentes: opacidade vista pelo radiologista (RSNA), menção no laudo extraída por algoritmo (Plus), rótulo de médico a partir do laudo (PadChest) | Os controles de rótulo deixam de ser complemento e passam a ser parte central da leitura da queda |
 | O Plus rende cerca de 689 positivos no teste, abaixo de 750 | O Plus usa 2 faixas de qualidade (mínimo de 500 positivos), não 3 |
-| A máscara do pulmão tende a deixar de fora o pulmão opacificado | Testar se a máscara encolhe nos positivos antes do congelamento; máscara central fixa como sensibilidade |
+| A máscara do pulmão tende a deixar de fora o pulmão opacificado | Testado em 26/10 no RSNA (1.000 imagens, regra fixada antes): a máscara não depende da doença. A máscara central fixa continua como sensibilidade, e o brilho dentro do pulmão, que sobe com a opacidade, vira questão da F4 |
 
 ---
 
