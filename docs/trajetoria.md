@@ -72,7 +72,7 @@ Como o projeto chegou até aqui, passo a passo: o que foi feito em cada etapa, o
 | Termos de uso | Redistribuição de qualquer parte proibida | F3 › PadChest › Termos |
 | Abertura das 24.773 imagens | Todas abrem; PNG reescalados para 16 bits | F3 › PadChest › Escala |
 | Saturação | **O Imaging Dynamics satura o branco em 59% das imagens e tem um terço da prevalência do Philips** | F3 › PadChest › Fabricante |
-| Máscara | 96/100; falhas em pulmões muito opacos | Mesmo padrão nas três bases: testar a máscara nos positivos |
+| Máscara | 97/100; falhas em pulmões muito opacos | Mesmo padrão nas três bases: testar a máscara nos positivos |
 
 ### Resultado da fase
 

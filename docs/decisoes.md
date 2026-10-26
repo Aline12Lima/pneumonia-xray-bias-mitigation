@@ -92,6 +92,7 @@ Todas as decisões do projeto num só lugar, nomeadas por **Fase › Base › Te
 | F3 › PadChest › Exclusões | Fora dos pacotes escolhidos; idade fora de 18 a 100; não frontais; "exclude"; sexo "O" | Recorte e regras comuns | Proposta | — |
 | F3 › PadChest › Escala | PNG reescalados para 16 bits; janela do CSV só vale depois da conversão | Medido nas 24.773 imagens | Proposta | — |
 | F3 › PadChest › Segunda passada | Baixar de novo os 13 pacotes, um por vez, para calcular as medidas na resolução original e comparar as duas conversões (percentis e janela do CSV reescalada); guardar só as medidas e apagar cada pacote | As originais de 16 bits foram apagadas depois da conversão; o protocolo exige as medidas na resolução original e duas conversões no PadChest | Tomada | — |
+| F3 › PadChest › Máscara (caso #43) | O caso #43 é aceitável; a máscara do PadChest fica com 97 de 100 | A imagem mostra só um lado do tórax (recorte ou colimação); a máscara segue a anatomia visível | Tomada | — |
 | F3 › PadChest › Fabricante | Análises de qualidade e física sempre dentro do fabricante | Saturação, fabricante e prevalência andam juntos | Proposta | — |
 
 ---
@@ -100,7 +101,6 @@ Todas as decisões do projeto num só lugar, nomeadas por **Fase › Base › Te
 
 | Tema | O que falta decidir |
 |---|---|
-| F3 › Todas › Máscara × doença | Se a máscara encolhe nos positivos (teste com 500 positivos e 500 negativos do RSNA); se sim, testar o lungVAE |
-| F3 › PadChest › Máscara (caso #43) | Confirmar se o #43 é falha (96/100) ou aceitável (97/100) |
+| F3 › Todas › Máscara × doença | Se a máscara deixa a opacidade de fora nos positivos. Teste no RSNA com 1.000 imagens (250 por projeção × rótulo) e regra de três critérios fixada antes de rodar, em `src/imagem/teste_mascara_doenca.py`; se a máscara depender da doença, testar o lungVAE |
 | F4 › Todas › Receita | Razão de subamostragem de negativos; resolução em que as degradações são aplicadas |
 | F4 › Todas › Testes primários | Lista nominal da família corrigida por Holm |

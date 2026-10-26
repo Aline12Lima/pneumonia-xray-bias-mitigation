@@ -17,7 +17,7 @@
 - **Todas as 24.773 imagens do recorte abriram**, e as dimensões batem 100% com o CSV. Nenhuma duplicata exata.
 - **Os PNG estão reescalados para 16 bits:** a profundidade original (10 ou 12 bits) se mantém, mas a escala foi esticada. A janela do CSV só funciona depois dessa conversão.
 - **Fabricante, saturação e prevalência andam juntos:** o Imaging Dynamics satura o branco em 59% das imagens e tem 1,24% de pneumonia; o Philips, 0% e 3,90%.
-- **Máscara do pulmão:** 96 de 100 aceitáveis (97 se o caso #43 for considerado aceitável).
+- **Máscara do pulmão:** 97 de 100 aceitáveis.
 - **Termos de uso estritos:** dados sempre privados; só resultados agregados podem ser publicados.
 
 ---
@@ -154,9 +154,11 @@ O mesmo das outras duas bases: `lungs-segmentation` resnet34, treinado só em Mo
 | #15 | Falha | A máscara caiu no centro do tórax; os dois pulmões estão muito opacos |
 | #40 | Falha | No pulmão direito, pegou só a parte escura e deixou de fora a parte clara comprometida |
 | #8, #10, #93 | Aceitável | Corretas quando ampliadas |
-| #43 | **Falha (leitura conservadora; a confirmar)** | O alerta automático marcou: um pulmão bem menor que o outro |
+| #43 | Aceitável (revisto em 25/10) | O alerta automático marcou um pulmão bem menor que o outro, mas a própria imagem mostra só um lado do tórax (recorte ou colimação na aquisição); a máscara segue a anatomia visível |
 
-**Resultado: 96 de 100 aceitáveis** (97 se o #43 for aceitável). Passa no critério de 95 nas duas leituras.
+**Resultado: 97 de 100 aceitáveis.** Passa no critério de 95.
+
+**Observação sobre o #43:** imagens recortadas que mostram só um lado do tórax existem na base. A máscara não é o problema nesses casos; o enquadramento da imagem é. A medida `q_enquadramento` e a razão entre os pulmões ajudam a identificá-las.
 
 **Padrão das falhas:** imagens AP com pulmões muito opacos, onde o modelo marca o pulmão com ar e perde o pulmão doente. É o mesmo padrão do Plus e do RSNA. Nenhuma imagem da inspeção estava invertida.
 
