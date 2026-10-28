@@ -98,3 +98,27 @@ def test_rodar_com_retomada_e_resumo(tmp_path, monkeypatch, capsys):
     assert not any((tmp_path / "tmp").rglob("*.dcm"))               # DICOMs apagados
     pc.resumo("rsna")
     assert "5 de 5 processadas" in capsys.readouterr().out
+
+
+def test_rodar_so_as_listas_na_ordem(tmp_path, monkeypatch):
+    tab = tmp_path / "eleg.csv"
+    pd.DataFrame({"SOPInstanceUID": [f"1.2.{i}" for i in range(6)]}).to_csv(tab, index=False)
+    lista = tmp_path / "lista.csv"
+    pd.DataFrame({"id": ["1.2.5", "1.2.1"]}).to_csv(lista, index=False)
+    monkeypatch.setitem(pc.BASES, "rsna", {"tabela": str(tab), "id": "SOPInstanceUID",
+                                           "saida": str(tmp_path / "out"), "tmp": str(tmp_path / "tmp")})
+    vistos = []
+
+    def baixador_falso(base, alvo):
+        def baixar(ident):
+            vistos.append(ident)
+            d = tmp_path / "tmp" / ident
+            d.mkdir(parents=True, exist_ok=True)
+            return _dicom(d / "x.dcm", _px())
+        return baixar
+
+    monkeypatch.setattr(pc, "baixador", baixador_falso)
+    import src.imagem.mascara as mascara
+    monkeypatch.setattr(mascara, "segmentar_pulmoes", _seg)
+    pc.rodar("rsna", listas=[str(lista)])
+    assert sorted(vistos) == ["1.2.1", "1.2.5"] and sorted(pc.juntar("rsna")["id"]) == ["1.2.1", "1.2.5"]

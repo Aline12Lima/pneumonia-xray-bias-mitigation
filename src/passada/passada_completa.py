@@ -18,7 +18,7 @@ Retomada: os resultados são gravados em blocos de 200 imagens em ``/out``. Se o
 
 Uso (no notebook do workflow da base, depois do ``git clone``):
     python -m src.passada.passada_completa --base rsna
-    python -m src.passada.passada_completa --base plus
+    python -m src.passada.passada_completa --base plus --listas /out/plus/listas/treino_subamostra.csv /out/plus/listas/validacao.csv
     python -m src.passada.passada_completa --base rsna --resumo     # lê só o /out
 """
 from __future__ import annotations
@@ -144,7 +144,7 @@ def baixador(base: str, alvo: pd.DataFrame):
 
 
 # ------------------------------------------------------------------ a passada
-def rodar(base: str, limite: int | None = None) -> None:
+def rodar(base: str, limite: int | None = None, listas: list[str] | None = None) -> None:
     from src.imagem.mascara import segmentar_pulmoes
 
     cfg = BASES[base]
@@ -154,6 +154,11 @@ def rodar(base: str, limite: int | None = None) -> None:
         os.makedirs(p, exist_ok=True)
 
     alvo = pd.read_csv(cfg["tabela"])
+    if listas:                                     # só as imagens das listas, na ordem das listas
+        ordem = pd.concat([pd.read_csv(l, usecols=["id"]) for l in listas])["id"].astype(str).drop_duplicates()
+        alvo = alvo.set_index(alvo[cfg["id"]].astype(str)).loc[lambda d: d.index.isin(ordem)]
+        alvo = alvo.loc[[i for i in ordem if i in alvo.index]].reset_index(drop=True)
+        print(f"{base}: {len(alvo)} imagens nas listas {[os.path.basename(l) for l in listas]}", flush=True)
     feitos = set()
     for b in glob.glob(f"{blocos}/*.csv"):
         feitos |= set(pd.read_csv(b, usecols=["id"])["id"].astype(str))
@@ -241,11 +246,13 @@ def main(argv=None) -> int:
     ap.add_argument("--base", choices=sorted(BASES), required=True)
     ap.add_argument("--resumo", action="store_true", help="só resume o que já está no /out")
     ap.add_argument("--limite", type=int, default=None, help="processa só as primeiras N imagens que faltam (teste)")
+    ap.add_argument("--listas", nargs="*", default=None,
+                    help="processa só os IDs destas listas (coluna 'id'), na ordem dada; ex.: treino e validação primeiro")
     a = ap.parse_args(argv)
     if a.resumo:
         resumo(a.base)
     else:
-        rodar(a.base, a.limite)
+        rodar(a.base, a.limite, a.listas)
     return 0
 
 
