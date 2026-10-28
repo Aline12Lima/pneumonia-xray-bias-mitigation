@@ -61,7 +61,7 @@ treino:                        # §7.2
 
 negativos:                     # §5 e §7.2
   subamostrar_no_treino: true
-  razao_neg_por_pos: null      # PENDENTE (F4, passo 4.3)
+  razao_neg_por_pos: 4         # F4 › Todas › Receita (28/10): 4 negativos por positivo, sorteio único (F4 › Plus › Subamostra fixa)
   correcao_prior: logit        # logit + ln(pi_nat/(1-pi_nat)) - ln(pi_treino/(1-pi_treino))
   validacao_com_prevalencia_natural: true
 

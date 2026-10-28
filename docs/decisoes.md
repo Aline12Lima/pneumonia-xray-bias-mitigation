@@ -98,6 +98,16 @@ Todas as decisões do projeto num só lugar, nomeadas por **Fase › Base › Te
 | F3 › PadChest › Conversão | Percentis 0,5–99,5 como conversão principal; sensibilidade com a janela do CSV reescalada **só no Philips** | No Philips as duas conversões concordam (Spearman 0,89 a 0,99, exceto saturação); no Imaging Dynamics a janela corta as pontas (saturação no pulmão de 0% para 14%; ruído e entropia sem concordância) e não serve como verificação. Limitação conhecida, não escolha arbitrária | Proposta | `padchest_final.md` §12.1 |
 | F3 › PadChest › Duplicatas quase idênticas | Nenhuma exclusão | Regra fixada antes: correlação ≥ 0,995 nas cópias de 320 px. 19.911 pares candidatos (hash igual), todos entre pacientes diferentes, nenhum acima de 0,98; inspeção visual dos 12 pares acima de 0,95: pessoas diferentes | Tomada | `padchest_final.md` §12.2 |
 
+
+## F4 — Fechamento do protocolo
+
+| Tema | Decisão | Por quê | Estado | Onde |
+|---|---|---|---|---|
+| F4 › Todas › Receita (razão de negativos) | 4 negativos por positivo no treino do Plus | É a razão usada na estimativa de GPU da F2 (10 a 20 h para os 21 treinos); uma razão maior exigiria nova passada no Plus | Tomada (28/10) | `configs/base.yaml` |
+| F4 › Plus › Subamostra fixa | Os negativos do treino do Plus são sorteados uma vez (semente 2026); as 5 sementes de treino usam o mesmo conjunto e variam só a inicialização e a ordem dos lotes | Medir e guardar só o que o modelo usa; sortear de novo por semente exigiria medir bem mais imagens | Tomada (28/10) | `src/divisao/listas.py` |
+| F4 › Plus › Passada | Passada completa do Plus só nas imagens que o estudo usa: teste e validação inteiros, treino com todos os positivos e os negativos sorteados; incertos do treino ficam fora (rótulo primário). Primeiro treino e validação, depois teste | Todas as 176.660 levariam cerca de 70 h de CPU; as análises confirmatórias usam só o teste, que é medido inteiro | Tomada (28/10) | `src/passada/passada_completa.py` |
+| F4 › Todas › Listas | Divisão por paciente, 70/10/20, semente 2026, estratificada pelo rótulo do paciente (positivo, só incerto, negativo); PadChest inteiro como teste externo. Os IDs ficam só no Redivis; no repositório entram as contagens e o SHA-256 de cada lista | Termos de uso das bases; o hash prova que as listas não mudaram depois do congelamento | Tomada (28/10) | `src/divisao/listas.py` |
+
 ---
 
 ## Decisões ainda abertas (fechar até o congelamento)
@@ -105,5 +115,5 @@ Todas as decisões do projeto num só lugar, nomeadas por **Fase › Base › Te
 | Tema | O que falta decidir |
 |---|---|
 | F4 › Todas › Brilho e opacidade | O brilho dentro do pulmão é maior nos positivos com as duas máscaras, a normal e a preenchida (diferença padronizada 0,39 no AP e 0,16 no PA, teste da máscara de 26/10). Parte do "brilho" é a própria opacidade, não a apresentação da imagem. Decidir como o eixo A e o T1 leem essa medida |
-| F4 › Todas › Receita | Razão de subamostragem de negativos; resolução em que as degradações são aplicadas |
+| F4 › Todas › Receita | Resolução em que as degradações do eixo B são aplicadas (a razão de negativos já foi decidida) |
 | F4 › Todas › Testes primários | Lista nominal da família corrigida por Holm |
