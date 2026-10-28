@@ -26,6 +26,7 @@ Uso (no notebook da base):
 from __future__ import annotations
 
 import argparse
+import glob
 import hashlib
 import json
 import os
@@ -99,6 +100,25 @@ def contar(df: pd.DataFrame, col_paciente: str) -> dict:
 
 
 # ------------------------------------------------------------------ execução
+def excluir_duplicatas_pixel(df: pd.DataFrame, md5: pd.DataFrame, col_id: str, col_paciente: str,
+                             col_ordem: str | None) -> tuple[pd.DataFrame, list[str]]:
+    """Regra F3 › Todas › Duplicatas para pixels idênticos (MD5 dos pixels, da passada completa).
+
+    Pacientes diferentes no mesmo grupo: saem todos. Mesmo paciente: fica a mais antiga (menor ``col_ordem``).
+    ``md5``: colunas ``id`` e ``md5_pixels``. Devolve (tabela sem as duplicatas, IDs retirados).
+    """
+    m = df.merge(md5[["id", "md5_pixels"]].astype(str), left_on=df[col_id].astype(str), right_on="id", how="left")
+    grupos = m[m["md5_pixels"].notna() & m.duplicated("md5_pixels", keep=False)]
+    sair = []
+    for _, g in grupos.groupby("md5_pixels"):
+        if g[col_paciente].nunique() > 1:
+            sair += g["id"].tolist()
+        else:
+            g = g.sort_values([col_ordem, "id"] if col_ordem else ["id"])
+            sair += g["id"].iloc[1:].tolist()
+    return df[~df[col_id].astype(str).isin(sair)], sair
+
+
 def gerar(base: str, tabela: str | None = None, saida: str | None = None) -> dict:
     cfg = BASES[base]
     tabela, saida = tabela or cfg["tabela"], saida or cfg["saida"]
@@ -108,6 +128,12 @@ def gerar(base: str, tabela: str | None = None, saida: str | None = None) -> dic
     if base == "rsna" and "idade" in df.columns:
         df = df[df["idade"].between(18, 100)]   # o CSV de elegíveis ainda tem as 5 imagens acima de 100 anos
     df = df.drop_duplicates(cfg["id"]).copy()
+    retiradas = []
+    blocos = glob.glob(f"{saida}/passada/blocos/*.csv")
+    if base == "rsna" and blocos:                  # pixels idênticos encontrados na passada completa
+        md5 = pd.concat([pd.read_csv(b, usecols=["id", "md5_pixels"]) for b in blocos])
+        df, retiradas = excluir_duplicatas_pixel(df, md5, cfg["id"], cfg["paciente"],
+                                                 "seguimento" if "seguimento" in df.columns else None)
     df["id"] = df[cfg["id"]].astype(str)
     df["rotulo"] = rotulo(df, base)
     pac = cfg["paciente"]
@@ -121,7 +147,8 @@ def gerar(base: str, tabela: str | None = None, saida: str | None = None) -> dic
     os.makedirs(pasta, exist_ok=True)
     os.makedirs(trancada, exist_ok=True)
     cols = ["id", pac, "rotulo"]
-    resumo = {"base": base, "semente": SEMENTE, "fracoes": FRACOES, "elegiveis": len(df), "listas": {}}
+    resumo = {"base": base, "semente": SEMENTE, "fracoes": FRACOES, "elegiveis": len(df),
+              "duplicatas_pixel_retiradas": len(retiradas), "listas": {}}
     for nome in ["treino", "validacao", "teste"]:
         parte = df[df["particao"] == nome]
         if parte.empty:
@@ -143,7 +170,8 @@ def main(argv=None) -> int:
     ap.add_argument("--base", choices=sorted(BASES), required=True)
     a = ap.parse_args(argv)
     r = gerar(a.base)
-    print(f"{a.base}: {r['elegiveis']} imagens elegíveis | semente {r['semente']}")
+    print(f"{a.base}: {r['elegiveis']} imagens elegíveis | semente {r['semente']} | "
+          f"duplicatas de pixel retiradas: {r['duplicatas_pixel_retiradas']}")
     print(pd.DataFrame(r["listas"]).T[["imagens", "pacientes", "positivos", "incertos",
                                        "prevalencia_incerto_excluido", "sha256"]].to_string())
     print(f"\nListas em {BASES[a.base]['saida']}/listas/ e {BASES[a.base]['saida']}/listas_teste_trancado/")

@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.divisao.listas import dividir, gerar, sha256_ids, subamostrar
+from src.divisao.listas import dividir, excluir_duplicatas_pixel, gerar, sha256_ids, subamostrar
 
 
 def _plus(n_pac=2000, semente=0):
@@ -75,3 +75,22 @@ def test_gerar_rsna_tira_idade_acima_de_100(tmp_path):
                   "positivo": ["True", "False"] * 20, "idade": [40] * 38 + [150, 412]}).to_csv(tab, index=False)
     r = gerar("rsna", str(tab), str(tmp_path / "rsna"))
     assert r["elegiveis"] == 38
+
+
+def test_duplicatas_pixel_mesmo_paciente_fica_a_mais_antiga_e_entre_pacientes_saem_todas():
+    df = pd.DataFrame({"SOPInstanceUID": ["a", "b", "c", "d", "e"], "nih_paciente": [1, 1, 2, 3, 4],
+                       "seguimento": [12, 3, 0, 0, 0]})
+    md5 = pd.DataFrame({"id": ["a", "b", "c", "d", "e"], "md5_pixels": ["x", "x", "y", "y", "z"]})
+    fica, sai = excluir_duplicatas_pixel(df, md5, "SOPInstanceUID", "nih_paciente", "seguimento")
+    assert sorted(sai) == ["a", "c", "d"] and fica["SOPInstanceUID"].tolist() == ["b", "e"]
+
+
+def test_gerar_rsna_usa_os_blocos_da_passada(tmp_path):
+    tab = tmp_path / "eleg.csv"
+    pd.DataFrame({"SOPInstanceUID": [f"s{i}" for i in range(20)], "nih_paciente": [0, 0] + list(range(1, 19)),
+                  "positivo": ["False"] * 20, "idade": 50, "seguimento": [5, 1] + [0] * 18}).to_csv(tab, index=False)
+    (tmp_path / "rsna" / "passada" / "blocos").mkdir(parents=True)
+    pd.DataFrame({"id": [f"s{i}" for i in range(20)], "md5_pixels": ["m"] * 2 + [f"u{i}" for i in range(18)]}).to_csv(
+        tmp_path / "rsna" / "passada" / "blocos" / "b.csv", index=False)
+    r = gerar("rsna", str(tab), str(tmp_path / "rsna"))
+    assert r["elegiveis"] == 19 and r["duplicatas_pixel_retiradas"] == 1
