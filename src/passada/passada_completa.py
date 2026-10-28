@@ -226,7 +226,8 @@ def resumo(base: str) -> None:
     if len(df) < len(alvo):
         print("Ainda faltam imagens: rode a passada de novo.")
     print("\n=== Resolução por fabricante (mediana)")
-    print(ok.groupby("fabricante").agg(imagens=("id", "size"), linhas=("linhas", "median"), colunas=("colunas", "median"),
+    print(ok.assign(fabricante=ok["fabricante"].fillna("(sem fabricante no DICOM)"))
+          .groupby("fabricante").agg(imagens=("id", "size"), linhas=("linhas", "median"), colunas=("colunas", "median"),
                                       espacamento_mm=("espacamento_mm", "median")).to_string())
     md5 = ok[ok.duplicated("md5_pixels", keep=False)]
     dh = ok[ok.duplicated("dhash", keep=False)]
