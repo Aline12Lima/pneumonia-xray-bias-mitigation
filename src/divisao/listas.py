@@ -105,6 +105,8 @@ def gerar(base: str, tabela: str | None = None, saida: str | None = None) -> dic
     df = pd.read_csv(tabela)
     if base == "padchest" and "PatientSex_DICOM" in df.columns:
         df = df[df["PatientSex_DICOM"].isin(["M", "F"])]                  # base final: sexo registrado
+    if base == "rsna" and "idade" in df.columns:
+        df = df[df["idade"].between(18, 100)]   # o CSV de elegíveis ainda tem as 5 imagens acima de 100 anos
     df = df.drop_duplicates(cfg["id"]).copy()
     df["id"] = df[cfg["id"]].astype(str)
     df["rotulo"] = rotulo(df, base)

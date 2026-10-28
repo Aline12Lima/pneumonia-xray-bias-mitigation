@@ -67,3 +67,11 @@ def test_gerar_padchest_tudo_teste(tmp_path):
                   "PatientSex_DICOM": ["M", "F", "O"]}).to_csv(tab, index=False)
     r = gerar("padchest", str(tab), str(tmp_path / "pc"))
     assert list(r["listas"]) == ["teste"] and r["listas"]["teste"]["imagens"] == 2
+
+
+def test_gerar_rsna_tira_idade_acima_de_100(tmp_path):
+    tab = tmp_path / "eleg.csv"
+    pd.DataFrame({"SOPInstanceUID": [f"1.2.{i}" for i in range(40)], "nih_paciente": range(40),
+                  "positivo": ["True", "False"] * 20, "idade": [40] * 38 + [150, 412]}).to_csv(tab, index=False)
+    r = gerar("rsna", str(tab), str(tmp_path / "rsna"))
+    assert r["elegiveis"] == 38
