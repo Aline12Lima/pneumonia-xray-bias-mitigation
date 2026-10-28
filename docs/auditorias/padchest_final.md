@@ -171,7 +171,7 @@ O mesmo das outras duas bases: `lungs-segmentation` resnet34, treinado só em Mo
 | Cópia de 320 px de todo o recorte | 4,11 GB |
 | Amostra de inspeção | 0,27 GB |
 
-O modelo base não precisa baixar os 282 GB de novo para treinar e avaliar. Só as medidas de qualidade na resolução original exigiriam um novo download (seção 12).
+O modelo base não precisa baixar os 282 GB de novo para treinar e avaliar. As medidas de qualidade na resolução original foram feitas numa segunda passada, que baixou os pacotes de novo e guardou só as tabelas (seção 12).
 
 ---
 
@@ -186,18 +186,51 @@ O modelo base não precisa baixar os 282 GB de novo para treinar e avaliar. Só 
 
 ---
 
-## 12. Pendências que não impedem a aprovação
+## 12. Segunda passada: medidas na resolução original (26 e 27/10/2026)
 
-| Item | Onde será feito |
-|---|---|
-| Medidas de qualidade na resolução original | Exige baixar os 282 GB de novo (cerca de 4 h) ou registrar a medida em resolução reduzida como decisão |
-| Duplicatas por pixel (hash perceptual) | Na mesma passada das medidas |
-| Comparar a área da máscara com o rótulo | Teste geral da máscara (500 positivos e 500 negativos do RSNA) e passada completa |
-| Confirmar o veredito do #43 | Aline |
+**Execução:** os 13 pacotes foram baixados de novo, um por vez, no notebook gratuito (`src/padchest/segunda_passada.py`, 2 sessões, cerca de 1,4 s por imagem). Em cada imagem: máscara do pulmão uma vez, sobre a conversão oficial; as oito medidas com a conversão oficial (percentis 0,5–99,5) e com a janela do CSV reescalada, usando a mesma máscara; hash de diferença para procurar duplicatas. Cada zip foi apagado depois de medido; ficaram só as tabelas (11,2 MB em `/out/padchest/medidas/`).
+
+**Integridade:** as 24.773 imagens abriram e foram medidas; nenhuma máscara vazia; 24.601 (99,3%) têm janela no CSV.
+
+### 12.1 Conversão oficial × janela do CSV
+
+Concordância de postos (Spearman) entre as duas conversões, por fabricante:
+
+| Medida | Philips (18.217) | Imaging Dynamics (6.384) |
+|---|---|---|
+| Brilho | 0,91 | 0,76 |
+| Contraste | 0,93 | 0,56 |
+| Saturação | 0,32 (quase todas em zero) | 0,11 |
+| Enquadramento | 0,99 | 0,85 |
+| Amplitude | 0,93 | 0,46 |
+| Entropia | 0,93 | −0,14 |
+| Nitidez | 0,89 | 0,76 |
+| Ruído | 0,93 | −0,05 |
+
+- **Philips:** as duas conversões ordenam as imagens quase do mesmo jeito; a janela só escurece todas as imagens (brilho mediano 113 contra 100).
+- **Imaging Dynamics:** a janela cobre só parte dos pixels (69%, seção 5) e **corta as pontas**: brilho mediano 97 contra 59, saturação no pulmão de 0% para 14%, ruído de 1,5 para 0,5. Com a janela, ruído e entropia deixam de medir o que deveriam.
+
+**Leitura:** a conversão por percentis fica como principal, porque é a única que trata os dois fabricantes do mesmo jeito sem cortar a imagem. A sensibilidade com a janela vale só no Philips; no Imaging Dynamics ela descreve outra imagem e não serve como verificação (limitação conhecida). Reforça que as análises de qualidade no PadChest são sempre feitas dentro do fabricante.
+
+### 12.2 Duplicatas quase idênticas
+
+- **Candidatas:** 4.565 imagens em 1.364 grupos com o mesmo hash de diferença (64 bits; o maior grupo tem 99 imagens).
+- **Regra fixada antes de olhar:** quase idêntica se a correlação pixel a pixel das cópias de 320 px for de 0,995 ou mais.
+- **Resultado:** 19.911 pares comparados, todos entre pacientes diferentes. Nenhum chegou a 0,98 (19.899 abaixo de 0,95; 12 entre 0,95 e 0,98). **Nenhuma duplicata quase idêntica; nenhuma exclusão.**
+- **Inspeção visual (Aline, 27/10):** os pares mais parecidos (correlação acima de 0,95, 12 pares, todos PA do Philips) são de **pessoas diferentes**: corpo e características físicas diferentes, e manchas e achados diferentes. O cadastro confirma em 6 dos 12 pares (sexo diferente em 2; diferença de idade de 9 a 35 anos em 4); nos outros 6, sexo e idade próximos (1 a 4 anos) não bastam para separar, e a inspeção visual decide. Não há sinal de uma pessoa cadastrada com dois números de paciente.
+- **Limite da busca:** só foram comparadas imagens com hash idêntico. Como o PadChest é só teste externo, uma duplicata não vazaria entre treino e teste, e já não havia nenhuma duplicata exata (seção 4).
 
 ---
 
-## 13. Decisões
+## 13. Pendências que não impedem a aprovação
+
+| Item | Onde será feito |
+|---|---|
+| Nenhuma | A segunda passada (seção 12), o teste da máscara nos positivos (feito no RSNA, `rsna_final.md` §8.2) e o veredito do #43 (aceitável) fecharam as pendências desta base |
+
+---
+
+## 14. Decisões
 
 | Decisão | Conteúdo |
 |---|---|
@@ -206,6 +239,8 @@ O modelo base não precisa baixar os 282 GB de novo para treinar e avaliar. Só 
 | **F3 › PadChest › Exclusões** | Fora dos pacotes escolhidos; idade fora de 18 a 100; projeções não frontais; rótulo "exclude"; sexo "O" |
 | **F3 › PadChest › Escala** | PNG reescalados para 16 bits; a janela do CSV vale só depois da conversão |
 | **F3 › PadChest › Fabricante** | Análises de qualidade e física sempre dentro do fabricante |
+| **F3 › PadChest › Conversão** | Percentis como conversão principal; sensibilidade com a janela do CSV só no Philips |
+| **F3 › PadChest › Duplicatas quase idênticas** | Nenhuma encontrada; nenhuma exclusão |
 
 ---
 
