@@ -66,6 +66,16 @@ A máscara ficou vazia em 100% das imagens fictícias. Isso é esperado: o model
 
 Pacotes instalados por cima da imagem do Redivis: `environment/requirements_extra.txt` (OpenCV) e `lungs-segmentation==1.1.2`, instalado com `--no-deps`.
 
+## Armazenamento e créditos (conferido em 30/10/2026)
+
+| Item | Valor | Onde ver |
+|---|---|---|
+| Armazenamento pessoal | **8,2 GB de 10 GB** (cota gratuita da conta individual) | Workspace → Settings → Compute credits and billing |
+| `/out` dos notebooks | Plus 3,67 GB; RSNA 5,44 GB; PadChest 4,43 GB (13,5 GB no total) | Célula de conferência no próprio notebook |
+| Créditos de processamento | 91,58 (de 100 comprados) | Mesma tela de Settings |
+
+O `/out` somado (13,5 GB) passa do total usado na cota (8,2 GB), então, pelos números, o `/out` dos notebooks não entra na cota de 10 GB; ela conta os datasets. Os créditos pagam só máquinas maiores e GPU, não espaço. Regra: as passadas e as degradações rodam na CPU gratuita; os créditos ficam para o treino com GPU.
+
 ## Mudanças de ambiente observadas
 
 | Data | O que mudou | Efeito |
