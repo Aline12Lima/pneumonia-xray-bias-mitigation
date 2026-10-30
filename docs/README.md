@@ -16,6 +16,6 @@ Qualidade e apresentação de radiografias de tórax e erros, calibração e gen
 | `fundamentacao/` | Física, aquisição, geometria, processamento e qualidade da radiografia (1A a 1F) |
 | `escolha_das_bases.md` | Por que estas bases foram escolhidas |
 | `auditorias/` | Uma auditoria preliminar e uma final por base |
-| `protocolo/` | Protocolo científico v1.0 e plano de execução |
+| `protocolo/` | Protocolo científico v1.1 (`protocolo_v1.1.md` e o PDF congelado), a v1.0 original e o plano de execução |
 
 **Regra:** cada etapa tem um documento só. Versões novas substituem as antigas no mesmo arquivo; o histórico fica no git.
