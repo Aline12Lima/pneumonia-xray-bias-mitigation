@@ -94,8 +94,35 @@ Os documentos produzidos em vários chats foram reunidos numa só pasta (`docs/`
 
 ---
 
+## 8. Passadas completas, listas e congelamento do protocolo (28 a 30/10/2026)
+
+**Documentos:** `protocolo/protocolo_v1.1.md` e `.pdf`, `decisoes.md` (seção F4), `../data/splits/listas_sha256.json`
+
+- **Passadas completas** nas três bases: as oito medidas na resolução original, a máscara, as duplicatas e o cache de 320 px (RSNA 25.408 imagens; Plus 65.705, só as que o estudo usa; PadChest 24.773). Uma duplicata de pixels saiu do RSNA e uma do Plus, as duas do mesmo paciente.
+- **Listas** de treino, validação e teste por paciente (semente 2026), com SHA-256. Positivos no teste: Plus 690 (2 faixas de qualidade), RSNA 1.100 e PadChest 796.
+- **Decisões do fechamento (30/10):**
+  - brilho e opacidade: regras de leitura do brilho;
+  - CheXthought: fora da v1.1;
+  - degradações do eixo B: opção C, com controle positivo em 320 px, depois de um piloto em 50 imagens da validação do Plus e do RSNA. O piloto mostrou que o ruído e o desfoque leve na resolução original quase não chegam a 320 px;
+  - margens: o ECE escalado pela prevalência, mais a regra das três saídas;
+  - três famílias de testes primários com Holm (72, 27 e 5 testes).
+- **Congelamento do protocolo v1.1 (30/10/2026)**, um dia antes da data do plano, a pedido da autora:
+
+| Item | Valor |
+|---|---|
+| Arquivo | `docs/protocolo/protocolo_v1.1.pdf` (9 páginas) |
+| SHA-256 do PDF | `97d4ee405c4c86f889e3b800ee4f0d6f0b3a1fb4953a91d2f707562de721835f` |
+| Hashes das listas | `data/splits/listas_sha256.json` (teste: Plus `7437a920…`, RSNA `c4de2e1c…`, PadChest `0786ca66…`) |
+| Trava do teste | Nenhum código de treino ou de análise lê `listas_teste_trancado/`; só `src/divisao/listas.py`, que a grava (verificado por busca no repositório em 30/10). O teste de fumaça (`src/fumaca.py`) usa só imagens sintéticas |
+| Tag no git | `protocolo-v1.1` |
+| Decisões | Todas tomadas; as que eram propostas viraram "Tomada no congelamento (30/10)" |
+
+**A partir daqui, qualquer mudança no que está no protocolo v1.1 é um desvio**, registrado em `desvios/` com data, seção, motivo e impacto.
+
+---
+
 ## Próximos passos (pelo plano de execução)
 
-1. **Infraestrutura:** ambiente fixado, GPU medida e teste de fumaça do pipeline em 100 imagens.
-2. **Fim da auditoria:** teste da máscara nos positivos; rótulos do segundo rotulador no Plus.
-3. **Congelamento do protocolo (31/10):** fechar as decisões propostas, gerar as listas de treino, validação e teste com hash e trancar o teste.
+1. **Linha de base (1 a 7/11):** piloto do M1 com GPU, testes de sanidade e de determinismo, primeira tabela de predições da validação.
+2. **Em paralelo:** T1 e T2 exploratórios em treino e validação; rótulos do rotulador CheXpert no Plus; geração das imagens degradadas da amostra (CPU).
+3. **Modelos M1 a M3 (8 a 20/11)**, ensaio geral na validação, tag do código de análise e destrancamento do teste em 21/11.

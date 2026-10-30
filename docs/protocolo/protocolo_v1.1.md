@@ -2,7 +2,7 @@
 
 **Qualidade e apresentação de radiografias de tórax, erros, calibração e generalização de classificadores de pneumonia**
 
-Autora: Aline Lima · Iniciação científica · Versão 1.1 (**congelada** em 31/10/2026) · substitui a v1.0 de 17/10/2026
+Autora: Aline Lima · Iniciação científica · Versão 1.1 (**congelada** em 30/10/2026) · substitui a v1.0 de 17/10/2026
 
 Modelo fixo: DenseNet121 (pesos ImageNet) · Bases: CheXpert Plus, RSNA Pneumonia (Stage 2) e PadChest
 
@@ -292,7 +292,7 @@ Cada par é classificado num cenário **antes** de escrever a discussão. Crité
 
 | Fase | Período |
 |---|---|
-| Congelamento do protocolo (este documento) | 31/10 |
+| Congelamento do protocolo (este documento) | 30/10 |
 | F5 — Linha de base (M1 piloto, sanidade, determinismo) | 1 a 7/11 |
 | F6 — M1 a M3 × 5 sementes, limiar, temperatura, ensaio geral | 8 a 20/11 |
 | Geração das imagens degradadas da amostra (CPU, em paralelo ao treino) | 1 a 20/11 |
@@ -305,7 +305,7 @@ Cada par é classificado num cenário **antes** de escrever a discussão. Crité
 | F12 — Reprodutibilidade | 8 a 15/12 |
 | F13 — Redação e entrega | 13 a 31/12 (data final a confirmar) |
 
-**Governança.** Marcos: auditoria concluída (30/10), protocolo congelado (31/10), teste destrancado só após o treino final e o congelamento do código de análise (21/11). Depois do congelamento, toda mudança é desvio (`docs/desvios/`), com data, motivo e impacto.
+**Governança.** Marcos: auditoria concluída (30/10), protocolo congelado (30/10), teste destrancado só após o treino final e o congelamento do código de análise (21/11). Depois do congelamento, toda mudança é desvio (`docs/desvios/`), com data, motivo e impacto.
 
 **Pendências que não mudam o que está congelado:** revisão sistemática formal (strings em PubMed, Scopus, Web of Science e Embase); T1 e T2 exploratórios em treino e validação; rótulos do rotulador CheXpert no Plus (para o controle de discordância); descrição de raça e etnia no Plus; acesso ao CheXthought (fora da v1.1).
 
@@ -346,4 +346,4 @@ Cada par é classificado num cenário **antes** de escrever a discussão. Crité
 | §9 | Margens propostas; família primária vaga | Margens confirmadas, ECE escalado pela prevalência; regra das três saídas; três famílias nominais (72, 27 e 5); sementes juntas na regressão | Plano › Todas › Estatística; F4 › Todas › Testes primários |
 | §12 | Eixo A até 21/11 | Cronograma do plano de execução; pendências que não mudam o congelado | Plano de execução |
 
-**Pré-registro.** O SHA-256 deste PDF é registrado no diário de 31/10/2026 e numa tag no git (`protocolo-v1.1`); se possível, também no OSF.
+**Pré-registro.** O SHA-256 deste PDF é registrado em `docs/protocolo/protocolo_v1.1.pdf.sha256`, no registro do congelamento (`docs/trajetoria.md`, seção 8) e numa tag no git (`protocolo-v1.1`); se possível, também no OSF.
