@@ -34,7 +34,7 @@ Todas as decisões do projeto num só lugar, nomeadas por **Fase › Base › Te
 | Plano › Todas › Revisão dos erros | Revisão visual com livro de códigos (fase 9) | Sem pré-especificação, parece pesca de padrões | Tomada no congelamento (30/10) | D-020 |
 | Plano › Todas › Atalhos cedo | T1 e T2 exploratórios em treino e validação | Mostram atalhos sem gastar o teste | Tomada no congelamento (30/10) | D-021 |
 | Plano › Todas › Ensaio geral | Código de análise testado na validação e congelado antes de abrir o teste | Evita ajustes depois de ver o teste | Tomada no congelamento (30/10) | D-022 |
-| Plano › Todas › Pré-registro | Tag no git e registro no OSF | Carimbo de tempo verificável | Tomada no congelamento (30/10) | D-023 |
+| Plano › Todas › Pré-registro | Tag `protocolo-v1.1` no GitHub com o SHA-256 do PDF; OSF não usado (o protocolo previa "se possível") | Carimbo de tempo verificável | Tomada no congelamento (30/10); OSF dispensado em 30/10, sem desvio | D-023 |
 
 ---
 
