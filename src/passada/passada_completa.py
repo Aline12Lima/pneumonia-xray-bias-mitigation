@@ -213,20 +213,24 @@ def juntar(base: str) -> pd.DataFrame:
     return pd.concat([pd.read_csv(b) for b in blocos], ignore_index=True).drop_duplicates("id", keep="last")
 
 
-def resumo(base: str) -> None:
+def resumo(base: str, listas: list[str] | None = None) -> None:
     from src.padchest.segunda_passada import comparar
+    from src.qualidade.fabricante import normalizar_fabricante
 
     cfg = BASES[base]
     df = juntar(base)
     alvo = pd.read_csv(cfg["tabela"])
+    if listas:                                     # o total esperado é o das listas, não o de elegíveis
+        ids = set(pd.concat([pd.read_csv(l, usecols=["id"]) for l in listas])["id"].astype(str))
+        alvo = alvo[alvo[cfg["id"]].astype(str).isin(ids)]
     ok = df[df["abriu"].astype(bool)] if len(df) else df
     print(f"{base}: {len(df)} de {len(alvo)} processadas | abriram: {len(ok)} | "
           f"máscara vazia: {int((ok['q_aux_roi_vazia'] == 1).sum())} | "
           f"razão entre pulmões < 0,35: {int((ok['razao_pulmoes'] < 0.35).sum())}")
     if len(df) < len(alvo):
         print("Ainda faltam imagens: rode a passada de novo.")
-    print("\n=== Resolução por fabricante (mediana)")
-    print(ok.assign(fabricante=ok["fabricante"].fillna("(sem fabricante no DICOM)"))
+    print("\n=== Resolução por fabricante (nome unificado; mediana)")
+    print(ok.assign(fabricante=ok["fabricante"].map(normalizar_fabricante))
           .groupby("fabricante").agg(imagens=("id", "size"), linhas=("linhas", "median"), colunas=("colunas", "median"),
                                       espacamento_mm=("espacamento_mm", "median")).to_string())
     md5 = ok[ok.duplicated("md5_pixels", keep=False)]
@@ -251,7 +255,7 @@ def main(argv=None) -> int:
                     help="processa só os IDs destas listas (coluna 'id'), na ordem dada; ex.: treino e validação primeiro")
     a = ap.parse_args(argv)
     if a.resumo:
-        resumo(a.base)
+        resumo(a.base, a.listas)
     else:
         rodar(a.base, a.limite, a.listas)
     return 0
