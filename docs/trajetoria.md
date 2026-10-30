@@ -119,6 +119,11 @@ Os documentos produzidos em vários chats foram reunidos numa só pasta (`docs/`
 
 **A partir daqui, qualquer mudança no que está no protocolo v1.1 é um desvio**, registrado em `desvios/` com data, seção, motivo e impacto.
 
+## 9. Linha de base (F5, a partir de 30/10/2026)
+
+- **Passo 5.1 (30/10):** SHA-256 de cada arquivo do cache de 320 px, conferido contra as listas congeladas. Nenhum arquivo faltando: Plus 12.100 (treino sorteado), 18.147 (validação) e 35.457 (teste); RSNA 17.948, 2.417 e 5.037. Os hashes por partição estão em `../data/splits/cache_sha256.json`. O cache oficial do PadChest (8 bits, percentis na resolução original) é gerado na leitura dos pacotes da F8.
+- **Passo 5.2:** carregador do cache (`src/treino/carregador.py`), que confere os hashes antes de usar as imagens e não lê o teste.
+
 ---
 
 ## Próximos passos (pelo plano de execução)
