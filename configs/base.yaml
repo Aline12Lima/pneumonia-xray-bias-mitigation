@@ -1,15 +1,14 @@
-# Configuração base de treino e avaliação — receita comum do protocolo v1.0 (§5, §6, §7.2, §7.3, §9)
+# Configuração base de treino e avaliação — receita do protocolo v1.1, congelado em 30/10/2026 (§5, §6, §7.2, §7.3, §9)
 #
 # Como usar: cada execução parte deste arquivo e muda só o que varia por treino
 # (modelo, semente, taxa de aprendizado). O código salva a configuração final
 # de cada execução junto com a tabela de predições.
 #
-# Valores marcados "PENDENTE" ainda não têm valor no protocolo.
-# Eles são fechados no congelamento (F4, até 31/10) e não podem ser inventados aqui.
-# Enquanto estiverem nulos, o treino real não roda; só o teste de fumaça.
+# Depois do congelamento, mudar um valor deste arquivo que o protocolo define é um desvio
+# (docs/desvios/). A taxa de aprendizado é escolhida pela busca da F5/F6 (§7.2).
 
 projeto:
-  protocolo: "v1.0"            # vira "v1.1" no congelamento
+  protocolo: "v1.1"            # congelado em 30/10/2026 (tag protocolo-v1.1)
   fontes: configs/fontes_redivis.yaml
 
 # ------------------------------------------------------------------ dados
