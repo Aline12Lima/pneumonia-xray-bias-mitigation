@@ -1,0 +1,84 @@
+{
+  "descricao": "Contagens e SHA-256 das listas de treino, validação e teste (F4, passo 4.8). O hash é calculado sobre os IDs ordenados, um por linha (src/divisao/listas.py, sha256_ids). Os IDs ficam só no Redivis (/out/<base>/listas e /out/<base>/listas_teste_trancado), por causa dos termos de uso.",
+  "semente": 2026,
+  "fracoes": {
+    "treino": 0.7,
+    "validacao": 0.1,
+    "teste": 0.2
+  },
+  "gerado_em": "2026-10-28 a 2026-10-30",
+  "codigo": "src/divisao/listas.py",
+  "bases": {
+    "plus": {
+      "elegiveis": 176659,
+      "duplicatas_pixel_retiradas": 1,
+      "listas": {
+        "treino": {
+          "imagens": 123055,
+          "pacientes": 43982,
+          "positivos": 2420,
+          "incertos": 10678,
+          "sha256": "8886d430b4fdeceb46f9da8e8c12d0b38bf5bd316c8c779eefda61258b18bc3e"
+        },
+        "validacao": {
+          "imagens": 18147,
+          "pacientes": 6284,
+          "positivos": 334,
+          "incertos": 1548,
+          "sha256": "6e36fdc84517cc7faba169a4cb0ec926b5956797898827dbd65ad3b5860051de"
+        },
+        "teste": {
+          "imagens": 35457,
+          "pacientes": 12566,
+          "positivos": 690,
+          "incertos": 3065,
+          "sha256": "7437a920aa6927e39124d274e53113754f369b7a26c5fc4c9a9fec5352e3ae62"
+        },
+        "treino_subamostra": {
+          "imagens": 12100,
+          "pacientes": 9320,
+          "positivos": 2420,
+          "incertos": 0,
+          "razao_neg_por_pos": 4,
+          "sha256": "7f55429916d1d3b665287b093e667c0d00e6eb57f973820356174a097b65f4d5"
+        }
+      }
+    },
+    "rsna": {
+      "elegiveis": 25402,
+      "duplicatas_pixel_retiradas": 1,
+      "listas": {
+        "treino": {
+          "imagens": 17948,
+          "pacientes": 7647,
+          "positivos": 4047,
+          "sha256": "da15b3d1048e8a08dc46cc2b27e5940439264c098d12364d3705cf5642c99cba"
+        },
+        "validacao": {
+          "imagens": 2417,
+          "pacientes": 1092,
+          "positivos": 480,
+          "sha256": "eb13f9a02ec8d30a3ea03e8b2491213f2538b5bdab8ba909bba0d8cc289d133d"
+        },
+        "teste": {
+          "imagens": 5037,
+          "pacientes": 2185,
+          "positivos": 1100,
+          "sha256": "c4de2e1cacdf7d73b41e97b8954550f1ccbcd2956b169308f83d204d214d14f5"
+        }
+      }
+    },
+    "padchest": {
+      "elegiveis": 24770,
+      "duplicatas_pixel_retiradas": 0,
+      "listas": {
+        "teste": {
+          "imagens": 24770,
+          "pacientes": 22985,
+          "positivos": 796,
+          "sha256": "0786ca662163a175eb48995ad3dfd4b61b5389466d4735cc3134f3a5e258f21a"
+        }
+      }
+    }
+  }
+}

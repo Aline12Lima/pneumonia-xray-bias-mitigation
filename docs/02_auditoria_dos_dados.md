@@ -310,8 +310,9 @@ O RSNA não registra fabricante.
 
 | Pendência | Bloqueia a aprovação das bases? | Quando |
 |---|---|---|
-| Medidas de qualidade (as 8 features) no Plus e no RSNA | Não | Código pronto (`src/qualidade/medidas.py`). **PadChest feito** na segunda passada (26 e 27/10, `auditorias/padchest_final.md` §12) |
-| Duplicatas por pixel no Plus e no RSNA | Não | Na mesma passada. **PadChest feito:** nenhuma quase idêntica |
+| Medidas de qualidade (as 8 features) | Não | **Feito nas três bases**: PadChest na segunda passada (26 e 27/10), RSNA (28/10) e Plus nas imagens que o estudo usa (28 a 30/10) |
+| Duplicatas por pixel | Não | **Feito nas três bases**: 1 par retirado no RSNA e 1 no Plus (mesmo paciente); nenhuma entre pacientes diferentes |
+| Listas de treino, validação e teste | Não | **Feito** (28 a 30/10): `data/splits/listas_sha256.json` |
 | Rótulos do rotulador CheXpert no Plus | Não | Download do CSV do CheXpert 1.0 |
 | Raça e etnia no Plus | Não | Descrição na composição |
 | Testes de atalho exploratórios (T1, T2) em treino e validação | Não | Depois de gerar as listas de divisão |
