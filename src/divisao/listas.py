@@ -38,6 +38,11 @@ SEMENTE = 2026
 FRACOES = {"treino": 0.70, "validacao": 0.10, "teste": 0.20}
 RAZAO_NEG_POR_POS = 4
 
+# coluna que diz qual imagem do mesmo paciente é a mais antiga (regra F3 › Todas › Duplicatas)
+# Remover uma imagem não muda a divisão por paciente nem o sorteio do treino do Plus: o paciente
+# continua no mesmo estrato, e o sorteio só olha os negativos do treino.
+ORDEM_ANTIGUIDADE = {"rsna": "seguimento", "plus": "patient_report_date_order"}
+
 BASES = {
     "plus": {"tabela": "/out/plus_elegiveis_v2.csv", "id": "chave_dcm", "paciente": "deid_patient_id",
              "saida": "/out/plus"},
@@ -130,10 +135,10 @@ def gerar(base: str, tabela: str | None = None, saida: str | None = None) -> dic
     df = df.drop_duplicates(cfg["id"]).copy()
     retiradas = []
     blocos = glob.glob(f"{saida}/passada/blocos/*.csv")
-    if base == "rsna" and blocos:                  # pixels idênticos encontrados na passada completa
+    if base in ORDEM_ANTIGUIDADE and blocos:       # pixels idênticos encontrados na passada completa
         md5 = pd.concat([pd.read_csv(b, usecols=["id", "md5_pixels"]) for b in blocos])
-        df, retiradas = excluir_duplicatas_pixel(df, md5, cfg["id"], cfg["paciente"],
-                                                 "seguimento" if "seguimento" in df.columns else None)
+        ordem = ORDEM_ANTIGUIDADE[base] if ORDEM_ANTIGUIDADE[base] in df.columns else None
+        df, retiradas = excluir_duplicatas_pixel(df, md5, cfg["id"], cfg["paciente"], ordem)
     df["id"] = df[cfg["id"]].astype(str)
     df["rotulo"] = rotulo(df, base)
     pac = cfg["paciente"]

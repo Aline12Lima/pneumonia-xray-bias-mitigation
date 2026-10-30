@@ -139,3 +139,11 @@ def test_avisa_quando_a_imagem_parece_redimensionada():
         warnings.simplefilter("always")
         medidas_qualidade(pequena, roi)
     assert any("resolução original" in str(x.message) for x in w)
+
+
+def test_fabricante_unificado():
+    from src.qualidade.fabricante import normalizar_fabricante as n
+    assert {n('"GE Healthcare"'), n("GE Healthcare"), n("GE MEDICAL SYSTEMS")} == {"GE"}
+    assert {n("AGFA"), n("Agfa"), n("Agfa-Gevaert AG")} == {"Agfa"}
+    assert n("PhilipsMedicalSystems") == "Philips" and n("ImagingDynamicsCompanyLtd") == "Imaging Dynamics"
+    assert n(None) == "Desconhecido" and n("") == "Desconhecido" and n("Varian") == "Varian"

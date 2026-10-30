@@ -94,3 +94,21 @@ def test_gerar_rsna_usa_os_blocos_da_passada(tmp_path):
         tmp_path / "rsna" / "passada" / "blocos" / "b.csv", index=False)
     r = gerar("rsna", str(tab), str(tmp_path / "rsna"))
     assert r["elegiveis"] == 19 and r["duplicatas_pixel_retiradas"] == 1
+
+
+def test_gerar_plus_tira_duplicata_sem_mudar_divisao_nem_sorteio(tmp_path):
+    tab = tmp_path / "eleg.csv"
+    df = _plus()
+    df["patient_report_date_order"] = df.groupby("deid_patient_id").cumcount()
+    df.to_csv(tab, index=False)
+    antes = gerar("plus", str(tab), str(tmp_path / "a"))
+    # duas imagens do mesmo paciente com pixels idênticos
+    pac = df["deid_patient_id"].value_counts().index[0]
+    dup = df[df["deid_patient_id"] == pac]["chave_dcm"].iloc[:2].tolist()
+    (tmp_path / "b" / "passada" / "blocos").mkdir(parents=True)
+    pd.DataFrame({"id": df["chave_dcm"], "md5_pixels": [("x" if c in dup else c) for c in df["chave_dcm"]]}).to_csv(
+        tmp_path / "b" / "passada" / "blocos" / "b.csv", index=False)
+    depois = gerar("plus", str(tab), str(tmp_path / "b"))
+    assert depois["duplicatas_pixel_retiradas"] == 1 and depois["elegiveis"] == antes["elegiveis"] - 1
+    mudou = [n for n in ["treino", "validacao", "teste"] if depois["listas"][n]["sha256"] != antes["listas"][n]["sha256"]]
+    assert len(mudou) == 1                                         # só a partição do paciente duplicado muda
