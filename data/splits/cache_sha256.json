@@ -1,0 +1,47 @@
+{
+  "descricao": "SHA-256 do cache de 320 px em 8 bits (F5, passo 5.1; src/cache/hashes.py). Por partição: arquivos conferidos contra as listas congeladas e o SHA-256 do conjunto (linhas 'id sha256' ordenadas). Os hashes por arquivo ficam só no Redivis (/out/<base>/cache_hashes.csv). PadChest: o cache oficial em 8 bits é gerado na leitura dos pacotes da F8 (1 a 20/11).",
+  "gerado_em": "2026-10-30",
+  "codigo": "src/cache/hashes.py",
+  "bases": {
+    "plus": {
+      "treino_subamostra": {
+        "arquivos": 12100,
+        "faltando": 0,
+        "megabytes": 658.8,
+        "sha256_conjunto": "6d74295a91a6d9ca64dde0f536498a74fe7ae832c596eb5eb4b63a4768ec2777"
+      },
+      "validacao": {
+        "arquivos": 18147,
+        "faltando": 0,
+        "megabytes": 988.0,
+        "sha256_conjunto": "18d68d0d9f33c1279cf26fd74d02af0871912bc73597ae067443db6e24d3c3b4"
+      },
+      "teste": {
+        "arquivos": 35457,
+        "faltando": 0,
+        "megabytes": 1926.2,
+        "sha256_conjunto": "58a7d7df747ce3b02e33564dcb2ced0beffa704a8072de2550358963845d7b9d"
+      }
+    },
+    "rsna": {
+      "treino": {
+        "arquivos": 17948,
+        "faltando": 0,
+        "megabytes": 933.6,
+        "sha256_conjunto": "1db8e55149737cf1c306178a2d8212c8be87950b0828ca996c792fa8e2c95833"
+      },
+      "validacao": {
+        "arquivos": 2417,
+        "faltando": 0,
+        "megabytes": 124.7,
+        "sha256_conjunto": "5f4b8d4a1d21aec5b6e0a3f13a2bc437ad7c506b4ef899cdd69aef9526c28b99"
+      },
+      "teste": {
+        "arquivos": 5037,
+        "faltando": 0,
+        "megabytes": 260.8,
+        "sha256_conjunto": "c0e1c978d44589efaff10cebe57bde43f3b7973881464a2dc5d879f027c81a07"
+      }
+    }
+  }
+}
