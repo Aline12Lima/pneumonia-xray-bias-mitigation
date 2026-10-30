@@ -291,12 +291,12 @@ Nenhum dos dados de treino do modelo escolhido vem do NIH, de Stanford ou de Ali
 
 | Item | Passo | Bloqueia G3? | Onde será feito |
 |---|---|---|---|
-| Oito features na ROI, resolução original | 3.12 | Não | Passada completa, junto com o cache da F5 (D-037) |
-| Duplicatas por pixel (hash perceptual) | 3.10 | Não | Passada completa |
-| Resumo de resolução e abertura de pixels em toda a base | 3.2 (itens 5 e 6) | Não | Passada completa |
-| Alerta de ROI pela razão entre pulmões; checagem área da ROI × rótulo | 3.11 | Não | Passada completa |
+| Oito features na ROI, resolução original | 3.12 | Não | **Feito** nas 65.705 imagens que o estudo usa (§7) |
+| Duplicatas por pixel (hash perceptual) | 3.10 | Não | **Feito** (§7) |
+| Resumo de resolução e abertura de pixels | 3.2 (itens 5 e 6) | Não | **Feito** nas 65.705 imagens (§7) |
+| Alerta de ROI pela razão entre pulmões; checagem área da ROI × rótulo | 3.11 | Não | **Feito**: razão em §7; área × rótulo no teste da máscara (`rsna_final.md` §8.2) |
 | Rótulos do rotulador CheXpert (CSV do CheXpert 1.0) | §4.3c, §8.5 | Não | Download do CSV, sem imagens. Agora é o único segundo rotulador para o controle de discordância |
-| T1 e T2 exploratórios em treino e validação | 3.13 | Não | Depois dos splits (4.8); corrigir a ordem no plano |
+| T1 e T2 exploratórios em treino e validação | 3.13 | Não | Listas prontas (§7); falta rodar |
 | Aviso aos mantenedores sobre o `report_fixed.json` | — | Não | Opcional |
 | Registrar formalmente as decisões abaixo | F4 | Sim, para G4 | `docs/decisoes/` |
 
@@ -337,6 +337,41 @@ A auditoria de tabelas, rótulos, cabeçalhos e ROI do Plus está concluída e o
 **Ressalvas:** positivos abaixo da meta de 3 faixas; ROI no limite e sem detector de vazamento; rótulo do laudo inteiro inutilizável; projeção, fabricante e prevalência confundidos.
 
 ---
+
+---
+
+## 7. Passada completa e listas (28 a 30/10/2026)
+
+**Recorte da passada** (F4 › Plus › Passada): só as imagens que o estudo usa, 65.705 = treino sorteado (12.100) + validação (18.148) + teste (35.457). Quatro sessões do notebook gratuito, cerca de 0,8 a 1 s por imagem; cache de 320 px com 3,57 GB e tabelas com 25,8 MB em `/out/plus/passada/`.
+
+| Item | Resultado |
+|---|---|
+| Abriram | 65.705 de 65.705 |
+| Máscara vazia | 4 imagens |
+| Razão entre pulmões abaixo de 0,35 | 1.125 (1,7%) |
+| Pixels idênticos | 1 par, mesmo paciente (patient41910, estudos 3 e 4, negativo, validação): fica o estudo 3 |
+| Quase idênticas (correlação ≥ 0,995) | Só o mesmo par; entre pacientes diferentes, 6.636 pares, todos abaixo de 0,95 |
+
+**Fabricante e resolução** (nome unificado; mediana):
+
+| Fabricante | Imagens | Linhas × colunas | Espaçamento |
+|---|---|---|---|
+| Agfa (AGFA, Agfa, Agfa-Gevaert AG) | 56.575 | 2320 × 2828 (2048 × 2494 em "AGFA") | 0,15 a 0,17 mm |
+| GE ("GE Healthcare", GE Healthcare, GE MEDICAL SYSTEMS) | 9.116 | cerca de 2021 × 2021 | não gravado |
+| Varian | 14 | 3052 × 3052 | 0,139 mm |
+
+**Percentis × janela gravada no DICOM** (11.478 imagens com janela): concordância de postos baixa, brilho −0,04, contraste 0,55, amplitude 0,53, entropia 0,48, nitidez 0,61, ruído 0,68. Com a janela, o brilho mediano cai de 152 para 103, sem cortar a imagem (saturação mediana zero nas duas). Decisão: F3 › Plus › Conversão (percentis como principal; janela como análise exploratória descritiva).
+
+**Listas** (semente 2026, por paciente; base de 176.659 imagens depois da duplicata):
+
+| Partição | Imagens | Pacientes | Positivos | Incertos | Prevalência (incerto excluído) |
+|---|---|---|---|---|---|
+| Treino | 123.055 | 43.982 | 2.420 | 10.678 | 2,15% |
+| Treino sorteado (4 negativos por positivo) | 12.100 | 9.320 | 2.420 | 0 | 20% |
+| Validação | 18.147 | 6.284 | 334 | 1.548 | 2,01% |
+| Teste | 35.457 | 12.566 | 690 | 3.065 | 2,13% |
+
+O teste tem 690 positivos, acima de 500: vale a regra de 2 faixas (cerca de 345 por faixa). Retirar a duplicata mudou só o hash da validação; treino, treino sorteado e teste ficaram idênticos. Os SHA-256 estão em `data/splits/listas_sha256.json`.
 
 ## Referências usadas nesta auditoria
 

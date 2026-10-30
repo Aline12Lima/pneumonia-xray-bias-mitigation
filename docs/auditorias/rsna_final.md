@@ -246,15 +246,40 @@ Nomeadas por **Fase › Base › Tema**. A coluna "Referência antiga" traz o n�
 
 ## 11. Pendências que não impedem a aprovação
 
-| Item | Onde será feito |
+| Item | Situação |
 |---|---|
-| Medidas de qualidade em todas as imagens e duplicatas por pixel | Passada completa, junto com o cache do modelo base |
-| Comparar a área da máscara com o rótulo | Passada completa |
-| Verificar se o `PixelSpacing` pode substituir o fabricante | Passada completa |
-| Recontar os positivos do teste depois da divisão por paciente (semente 2026) | Geração das listas de treino, validação e teste |
+| Medidas de qualidade em todas as imagens e duplicatas por pixel | **Feito** na passada completa (seção 12) |
+| Comparar a área da máscara com o rótulo | **Feito** no teste da máscara nos positivos (§8.2) |
+| Verificar se o `PixelSpacing` pode substituir o fabricante | **Não pode**: os DICOM do RSNA não têm fabricante nem espaçamento do pixel (todos 1024 × 1024) |
+| Recontar os positivos do teste depois da divisão por paciente (semente 2026) | **Feito**: 1.100 positivos no teste (seção 12) |
 | Apagar o zip de 4 GB em `/out/rsna/` | Os arquivos já estão no dataset; libera espaço |
 
 ---
+
+---
+
+## 12. Passada completa e listas (28/10/2026)
+
+**Passada** (`src/passada/passada_completa.py`, notebook gratuito, uma sessão, cerca de 0,5 a 1,2 s por imagem conforme a carga do servidor): as 25.408 imagens do arquivo de elegíveis abriram; cada uma teve as oito medidas na resolução original, a máscara, o MD5 dos pixels, o hash de diferença e o cache de 320 px em 8 bits (1,32 GB, mais 8,7 MB de tabelas em `/out/rsna/passada/`).
+
+| Item | Resultado |
+|---|---|
+| Máscara vazia | 1 imagem (positiva, AP); fica no estudo, só as medidas dela ficam em branco |
+| Razão entre pulmões abaixo de 0,35 | 393 (1,5%) |
+| Pixels idênticos | 1 par, mesmo paciente (11723, negativo, AP): fica a imagem mais antiga (menor seguimento) |
+| Quase idênticas (correlação ≥ 0,995 nas cópias de 320 px) | Só o mesmo par; entre pacientes diferentes, 4.371 pares abaixo de 0,95 e 1 entre 0,95 e 0,98 |
+
+**Base final:** 25.402 imagens = 25.408 do arquivo de elegíveis − 5 com idade acima de 100 anos (o arquivo foi salvo antes do filtro) − 1 duplicata.
+
+**Listas** (semente 2026, por paciente):
+
+| Partição | Imagens | Pacientes | Positivos | Prevalência |
+|---|---|---|---|---|
+| Treino | 17.948 | 7.647 | 4.047 | 22,6% |
+| Validação | 2.417 | 1.092 | 480 | 19,9% |
+| Teste | 5.037 | 2.185 | 1.100 | 21,8% |
+
+O teste tem 1.100 positivos, acima de 750: o RSNA usa 3 faixas de qualidade. Os SHA-256 estão em `data/splits/listas_sha256.json`.
 
 ## Referências
 

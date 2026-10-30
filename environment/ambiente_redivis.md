@@ -65,3 +65,19 @@ DenseNet121 com pesos ImageNet, 320 px, lote 16, 1.000 imagens sintéticas.
 A máscara ficou vazia em 100% das imagens fictícias. Isso é esperado: o modelo foi treinado em radiografias reais. A qualidade da máscara em imagens reais foi medida nas auditorias.
 
 Pacotes instalados por cima da imagem do Redivis: `environment/requirements_extra.txt` (OpenCV) e `lungs-segmentation==1.1.2`, instalado com `--no-deps`.
+
+## Mudanças de ambiente observadas
+
+| Data | O que mudou | Efeito |
+|---|---|---|
+| 29/10/2026 | A imagem do Redivis trocou a versão do pandas: os avisos passaram a pedir numexpr 2.11.0 e bottleneck 1.5.0 (antes, numexpr 2.10.2) | Nenhum nas medidas (o pandas só monta as tabelas). A passada do Plus atravessou a troca; as sessões antes e depois usam o mesmo código de medida (`src/qualidade/medidas.py`, OpenCV e NumPy) |
+
+## Passadas completas (F3)
+
+| Base | Imagens | Sessões gratuitas | Ritmo |
+|---|---|---|---|
+| PadChest (segunda passada, 16 bits) | 24.773 | 2 | cerca de 1,4 s por imagem |
+| RSNA | 25.408 | 1 | 0,5 a 1,2 s por imagem, conforme a carga do servidor compartilhado |
+| Plus (recorte do estudo) | 65.705 | 4 | 0,8 a 2 s por imagem |
+
+O ritmo varia com a ocupação do servidor compartilhado da configuração gratuita, não com o código. A sessão gratuita para em 6 h; a passada grava blocos de 200 imagens em `/out` e retoma de onde parou.
