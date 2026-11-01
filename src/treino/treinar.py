@@ -89,7 +89,7 @@ def _logits(modelo, loader, disp) -> tuple[np.ndarray, np.ndarray, float]:
 
 def treinar(modelo_nome: str, semente: int, taxa: float, cfg: dict, saida: str, raiz: str = RAIZ_DADOS,
             pesos_imagenet: bool = True, epocas_max: int | None = None, limite: int | None = None,
-            retomar: bool = False, workers: int | None = None) -> dict:
+            retomar: bool = False, workers: int | None = None, rotulos_embaralhados: bool = False) -> dict:
     disp = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     fixar_sementes(semente)
     os.makedirs(saida, exist_ok=True)
@@ -106,6 +106,8 @@ def treinar(modelo_nome: str, semente: int, taxa: float, cfg: dict, saida: str, 
     va = ler_particao(base, "validacao", raiz=raiz)
     if limite:                                           # só para testes rápidos
         tr, va = tr.head(limite), va.head(limite)
+    if rotulos_embaralhados:                             # sanidade (passo 5.5): só o treino, a validação fica real
+        tr = tr.assign(rotulo=np.random.default_rng(semente).permutation(tr["rotulo"].to_numpy()))
     pi_nat, pi_tr = prevalencias(base)
 
     ds_tr = ImagensCache(tr, a_cfg, semente=semente)
@@ -177,7 +179,7 @@ def treinar(modelo_nome: str, semente: int, taxa: float, cfg: dict, saida: str, 
             break
 
     # ---------------------------------------------------------- melhor época, correção de prior
-    modelo.load_state_dict(torch.load(os.path.join(saida, "melhor.pt"), map_location=disp))
+    modelo.load_state_dict(torch.load(os.path.join(saida, "melhor.pt"), map_location=disp, weights_only=True))
     z, yv, _ = _logits(modelo, ld_va, disp)
     zc = correcao_prior(z, pi_nat, pi_tr)
     p_bruta, p_corr = 1 / (1 + np.exp(-z)), 1 / (1 + np.exp(-zc))
@@ -186,6 +188,7 @@ def treinar(modelo_nome: str, semente: int, taxa: float, cfg: dict, saida: str, 
                                                                     index=False)
     cur = pd.DataFrame(curvas)
     res = {"modelo": modelo_nome, "semente": semente, "taxa": taxa, "base": base,
+           "rotulos_embaralhados": rotulos_embaralhados,
            "epoca_melhor": int(cur.loc[cur["auprc"].idxmax(), "epoca"]), "epocas_rodadas": int(len(cur)),
            "seg_por_epoca_mediana": float(cur["seg_total"].median()),
            "pi_natural_treino": pi_nat, "pi_treino_usado": pi_tr,
