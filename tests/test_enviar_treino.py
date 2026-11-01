@@ -43,3 +43,31 @@ def test_para_se_faltar_arquivo(tmp_path):
     h.to_csv(os.path.join(raiz, "plus", "cache_hashes.csv"), index=False)
     with pytest.raises(RuntimeError):
         selecionar("plus", raiz=raiz, pasta_listas=str(tmp_path / "envio"))
+
+
+class _TabelaFalsa:
+    """Imita a tabela do Redivis: guarda por nome (reenviar substitui) e pode falhar num lote."""
+
+    def __init__(self, falhar_no_lote=None):
+        self.nomes, self.chamadas, self.falhar_no_lote = set(), 0, falhar_no_lote
+
+    def add_files(self, files, max_parallelization=8):
+        self.chamadas += 1
+        if self.chamadas == self.falhar_no_lote:
+            raise RuntimeError("queda simulada")
+        self.nomes |= {os.path.basename(f) for f in files}
+
+
+def test_envio_anota_e_retoma_sem_recomecar(tmp_path, monkeypatch):
+    import src.cache.enviar_treino as E
+    monkeypatch.setattr(E, "LOTE", 10)
+    monkeypatch.setattr(E.time, "sleep", lambda s: None)
+    arquivos = [str(tmp_path / f"img{k:03d}.png") for k in range(35)]
+    log = str(tmp_path / "log.txt")
+    tab = _TabelaFalsa(falhar_no_lote=2)
+    assert E.enviar(tab, arquivos, log, tentativas=1) == 10          # para no 2º lote, sem recomeçar
+    assert tab.chamadas == 2
+    tab.falhar_no_lote = None
+    assert E.enviar(tab, arquivos, log, tentativas=1) == 35          # retoma do 2º lote
+    assert tab.chamadas == 2 + 3 and len(tab.nomes) == 35
+    assert E.enviar(tab, arquivos, log) == 35 and tab.chamadas == 5  # nada a enviar: nenhuma chamada nova

@@ -9,8 +9,12 @@ O que vai (só treino e validação; **o teste nunca sai do notebook da base**):
 - tabela ``<base>_listas``: ``treino*.csv``, ``validacao.csv`` e ``cache_hashes.csv`` (só as linhas
   de treino e validação). Os nomes são os mesmos do ``/out``, para o carregador funcionar igual.
 
-O envio é retomável: rodar de novo pula o que já está no dataset. A versão do dataset fica em
-edição ("next"), privada; não publicar.
+Retomada: cada lote enviado com sucesso é anotado em ``/out/<base>/envio_cache_treino.txt``; rodar de
+novo pula o que está anotado. A consulta de arquivos do Redivis (``list_files``) falha nas tabelas da
+versão em edição, por isso **não é usada**. Reenviar um arquivo com o mesmo nome substitui o anterior
+(não duplica; conferido em 1/11), então um lote interrompido pode ser reenviado sem risco. No fim, a
+contagem de linhas da tabela é comparada com o total esperado. A versão do dataset fica em edição
+("next"), privada; não publicar.
 
 Uso (no notebook da base, CPU gratuita):
     python -m src.cache.enviar_treino --base plus
@@ -26,7 +30,7 @@ import time
 import pandas as pd
 
 USUARIO = "ads_alinelima"
-DATASET = "cache_treino"
+DATASET = "cache_treino:976k"           # referência qualificada (o Redivis avisa se faltar o id)
 LOTE = 500
 
 BASES = {
@@ -64,7 +68,7 @@ def selecionar(base: str, raiz: str = "/out", pasta_listas: str | None = None) -
 
 def _dataset():
     import redivis
-    ds = redivis.user(USUARIO).dataset(DATASET)
+    ds = redivis.user(USUARIO).dataset(DATASET.split(":")[0])
     if not ds.exists():
         ds.create(public_access_level="none",
                   description="Cache de 320 px (8 bits) de treino e validação do Plus e do RSNA, para o notebook "
@@ -80,31 +84,44 @@ def _tabela(ds, nome: str, descricao: str):
     return tab
 
 
-def _nomes(tab) -> set[str]:
+def linhas(tab) -> int | None:
+    """Número de arquivos na tabela (a contagem funciona; a listagem não)."""
     try:
-        return {getattr(f, "name", None) or f.properties.get("name") for f in tab.list_files()}
-    except Exception as e:                        # tabela recém-criada e vazia devolve erro 500
-        print(f"  (consulta dos já enviados falhou: {type(e).__name__}; considerando vazia)")
+        tab.get()
+        return int(tab.properties.get("numRows") or 0)
+    except Exception as e:
+        print(f"  (contagem de linhas falhou: {type(e).__name__})")
+        return None
+
+
+def ler_log(caminho: str) -> set[str]:
+    if not os.path.exists(caminho):
         return set()
+    with open(caminho, encoding="utf-8") as f:
+        return {l.strip() for l in f if l.strip()}
 
 
-def enviar(tab, arquivos: list[str]) -> int:
-    for rodada in range(1, 30):
-        ja = _nomes(tab)
-        faltam = [p for p in arquivos if os.path.basename(p) not in ja]
-        print(f"  rodada {rodada}: já no dataset {len(ja)} | faltam {len(faltam)}", flush=True)
-        if not faltam:
-            return len(ja)
-        for i in range(0, len(faltam), LOTE):
-            lote = faltam[i:i + LOTE]
+def enviar(tab, arquivos: list[str], log: str, tentativas: int = 4) -> int:
+    """Envia em lotes, na ordem do nome; anota cada lote enviado. Uma passada só, sem recomeçar."""
+    feitos = ler_log(log)
+    faltam = sorted((p for p in arquivos if os.path.basename(p) not in feitos), key=os.path.basename)
+    print(f"  já anotados como enviados: {len(feitos)} | faltam {len(faltam)}", flush=True)
+    for i in range(0, len(faltam), LOTE):
+        lote = faltam[i:i + LOTE]
+        for t in range(1, tentativas + 1):
             try:
                 tab.add_files(files=lote, max_parallelization=8)
-                print(f"    lote {i // LOTE + 1}: ok ({i + len(lote)}/{len(faltam)})", flush=True)
-            except Exception as e:
-                print(f"    lote {i // LOTE + 1}: falhou ({type(e).__name__}: {str(e)[:120]}); recomeça na próxima rodada")
-                time.sleep(30)
                 break
-    return len(_nomes(tab))
+            except Exception as e:
+                print(f"    lote {i // LOTE + 1}: tentativa {t} falhou ({type(e).__name__}: {str(e)[:100]})", flush=True)
+                if t == tentativas:
+                    print("    parando: rode a mesma célula de novo para continuar deste lote")
+                    return len(ler_log(log))
+                time.sleep(30 * t)
+        with open(log, "a", encoding="utf-8") as f:
+            f.write("\n".join(os.path.basename(p) for p in lote) + "\n")
+        print(f"    lote {i // LOTE + 1}: ok ({i + len(lote)}/{len(faltam)})", flush=True)
+    return len(ler_log(log))
 
 
 def main(argv=None) -> int:
@@ -121,15 +138,17 @@ def main(argv=None) -> int:
     t_img = _tabela(ds, f"{a.base}_c320", f"{a.base}: cache de 320 px em 8 bits, só treino e validação")
     t_lst = _tabela(ds, f"{a.base}_listas", f"{a.base}: listas de treino e validação e hashes do cache")
     if a.conferir:
-        print(f"No dataset: {len(_nomes(t_img))} de {len(pngs)} imagens | {len(_nomes(t_lst))} de {len(listas)} listas")
+        print(f"Na tabela: {linhas(t_img)} de {len(pngs)} imagens | {linhas(t_lst)} de {len(listas)} listas")
         return 0
+    log_img, log_lst = f"/out/{a.base}/envio_cache_treino.txt", f"/out/{a.base}/envio_cache_treino_listas.txt"
     print("\nListas:")
-    n_lst = enviar(t_lst, listas)
+    enviar(t_lst, listas, log_lst)
     print("\nImagens:")
-    n_img = enviar(t_img, pngs)
+    enviar(t_img, pngs, log_img)
+    n_img, n_lst = linhas(t_img), linhas(t_lst)
     ok = n_img == len(pngs) and n_lst == len(listas)
-    print(f"\nTotal no dataset: {n_img} de {len(pngs)} imagens | {n_lst} de {len(listas)} listas")
-    print("RESULTADO:", "envio completo" if ok else "INCOMPLETO — rode a mesma célula de novo")
+    print(f"\nNa tabela: {n_img} de {len(pngs)} imagens | {n_lst} de {len(listas)} listas")
+    print("RESULTADO:", "envio completo" if ok else "INCOMPLETO — rode a mesma célula de novo e me mande a saída")
     return 0
 
 
