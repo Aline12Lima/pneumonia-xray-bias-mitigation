@@ -20,7 +20,15 @@ fontes:
       rotulos: {ref: "rotulos:wpmr", linhas: 30000}   # rótulo final adjudicado + paciente NIH
 
   padchest:
-    dataset: "padchest (ads_alinelima), versão next, não publicada — uso restrito (termo BIMCV)"
+    # O dataset "padchest" (cache de 320 px em 16 bits, sem a conversão oficial) foi apagado em 1/11/2026
+    # para liberar a cota de 10 GB. O cache oficial (8 bits, percentis na resolução original) é gerado no
+    # /out do notebook auditoria_padchest, na leitura dos pacotes da F8, e o teste externo roda lá.
+    dataset: null
+
+  cache_treino:
+    dataset: "cache_treino (ads_alinelima), privado, versão next — só treino e validação, nenhum teste"
     tabelas:
-      c320: {ref: "c320:at46", linhas: 24773}   # 320x320, 16 bits, sem conversão; recorte do teste externo
-      csv:  {ref: "PADCHEST_chest_xray_images_labels_160K_01.02.19.csv", linhas: 160861}
+      plus_c320:   {linhas: 30247}   # 12.100 treino sorteado + 18.147 validação (os incertos vão junto; o carregador os tira)
+      plus_listas: {linhas: 3}
+      rsna_c320:   {linhas: 20365}
+      rsna_listas: {linhas: 3}
