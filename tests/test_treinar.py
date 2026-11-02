@@ -63,3 +63,17 @@ def test_treino_de_ponta_a_ponta_e_retomada(tmp_path):
     r = json.load(open(os.path.join(saida, "resumo.json"), encoding="utf-8"))
     # a correção de prior baixa as probabilidades (de 20% no treino para cerca de 2% natural)
     assert r["validacao_com_correcao"]["prob_media"] < r["validacao_sem_correcao"]["prob_media"]
+
+
+def test_retomar_depois_da_parada_antecipada_nao_treina_mais(tmp_path):
+    cfg = yaml.safe_load(open("configs/base.yaml", encoding="utf-8"))
+    cfg["treino"]["lote"] = 4
+    cfg["treino"]["parada_antecipada"]["paciencia"] = 1
+    raiz, saida = _cache(tmp_path), str(tmp_path / "treino")
+    res = treinar("M1", 0, 1e-4, cfg, saida, raiz=raiz, pesos_imagenet=False, epocas_max=6, workers=0)
+    n = res["epocas_rodadas"]
+    assert n < 6                                             # parou cedo (paciência 1)
+    os.remove(os.path.join(saida, "resumo.json"))            # simula a queda antes da avaliação final
+    res = treinar("M1", 0, 1e-4, cfg, saida, raiz=raiz, pesos_imagenet=False, epocas_max=6, workers=0, retomar=True)
+    assert res["epocas_rodadas"] == n                        # nenhuma época a mais
+    assert os.path.exists(os.path.join(saida, "resumo.json"))
