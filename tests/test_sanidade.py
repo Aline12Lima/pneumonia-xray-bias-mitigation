@@ -79,3 +79,16 @@ def test_rotulos_embaralhados_mantem_prevalencia_e_validacao_real(tmp_path):
     assert res["rotulos_embaralhados"] is True
     pred = pd.read_csv(tmp_path / "t" / "predicoes_validacao.csv")
     assert pred["rotulo"].tolist() == [1, 0] * 4             # a validação usa os rótulos reais
+
+
+def test_embaralhado_criterio_pela_media_das_epocas(tmp_path):
+    from src.treino.sanidade import treinar_embaralhado
+    raiz, _ = _cache(tmp_path)
+    cfg = yaml.safe_load(open("configs/base.yaml", encoding="utf-8"))
+    cfg["treino"]["lote"] = 4
+    r = treinar_embaralhado(cfg, semente=1, saida_raiz=str(tmp_path / "s"), raiz=raiz, pesos_imagenet=False,
+                            epocas_max=2, workers=0)
+    assert r["semente"] == 1 and r["epocas_rodadas"] == 2 and len(r["auroc_por_epoca"]) == 2
+    assert r["auroc_media"] == sum(pd.read_csv(tmp_path / "s" / "M1_s1_lr0.0001_embaralhado" / "curvas.csv")["auroc"]) / 2
+    r2 = treinar_embaralhado(cfg, semente=1, saida_raiz=str(tmp_path / "s"), so_avaliar=True)   # sem novo treino
+    assert r2["auroc_media"] == r["auroc_media"]
