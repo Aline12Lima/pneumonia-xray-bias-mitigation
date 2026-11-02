@@ -11,16 +11,25 @@ Três verificações, cada uma com um critério de aprovação fixado aqui, ante
    sem aumento, treinado 200 passos com a receita (AdamW, precisão mista). A perda deve chegar
    perto de zero: critério perda final < 0,01. Mostra que gradiente, perda e rótulos estão ligados.
 3. ``embaralhado``: o M1 treinado com os rótulos do treino permutados (mesma prevalência), receita
-   inteira, avaliado na validação com os rótulos reais. Sem sinal, a AUROC deve ficar perto de 0,5:
-   critério |AUROC − 0,5| < 0,05. Mostra que o desempenho do piloto não vem de vazamento.
+   inteira, avaliado na validação com os rótulos reais. Sem sinal, a AUROC deve ficar perto de 0,5.
+   Mostra que o desempenho do piloto não vem de vazamento.
 
-Saída em ``/out/sanidade/``: ``pacientes.json``, ``sobreajuste.json`` e a pasta do treino
-embaralhado (``M1_s0_lr0.0001_embaralhado/``, com o ``resumo.json`` do treino).
+   Critério (revisto em 01/11, antes de rodar as sementes 1 e 2): AUROC **média de todas as épocas**,
+   |média − 0,5| < 0,05, em cada uma das três permutações (sementes 0, 1 e 2). O critério original
+   (|AUROC − 0,5| < 0,05 só na melhor época) foi reprovado na semente 0 (0,5552, melhor época 0) e
+   fica registrado: escolher a melhor de várias épocas sem sinal puxa o valor para longe de 0,5.
+   A semente 0 é reavaliada pelo ``curvas.csv`` que já existe (``--so-avaliar``), sem novo treino.
+
+Saída em ``/out/sanidade/``: ``pacientes.json``, ``sobreajuste.json``, ``embaralhado.json`` (semente 0,
+critério original), ``embaralhado_s<semente>.json`` (critério revisto) e as pastas dos treinos
+(``M1_s<semente>_lr0.0001_embaralhado/``).
 
 Uso (notebook "treino" do workflow treino_modelos):
     python -m src.treino.sanidade --verificacao pacientes
     python -m src.treino.sanidade --verificacao sobreajuste        # GPU, menos de 1 minuto
-    python -m src.treino.sanidade --verificacao embaralhado        # GPU, um treino curto
+    python -m src.treino.sanidade --verificacao embaralhado --semente 0 --so-avaliar   # sem GPU
+    python -m src.treino.sanidade --verificacao embaralhado --semente 1                # GPU, um treino curto
+    python -m src.treino.sanidade --verificacao embaralhado --semente 2
 """
 from __future__ import annotations
 
@@ -112,19 +121,40 @@ def sobreajustar_lote(cfg: dict, base: str = "plus", n: int = 32, passos: int = 
 
 
 # ------------------------------------------------------------------ 3. rótulos embaralhados
-def treinar_embaralhado(cfg: dict, saida_raiz: str = SAIDA, **kw) -> dict:
-    saida = os.path.join(saida_raiz, "M1_s0_lr0.0001_embaralhado")
-    res = treinar("M1", 0, 1e-4, cfg, saida, rotulos_embaralhados=True, **kw)
-    auroc = res["validacao_com_correcao"]["auroc"]
-    return {"auroc_validacao": auroc, "auprc_validacao": res["validacao_com_correcao"]["auprc"],
+def pasta_embaralhado(semente: int, saida_raiz: str = SAIDA) -> str:
+    return os.path.join(saida_raiz, f"M1_s{semente}_lr0.0001_embaralhado")
+
+
+def avaliar_embaralhado(saida: str) -> dict:
+    """Critério revisto: AUROC média de todas as épocas, a partir do curvas.csv do treino."""
+    cur = pd.read_csv(os.path.join(saida, "curvas.csv"))
+    res = json.load(open(os.path.join(saida, "resumo.json"), encoding="utf-8"))
+    media = float(cur["auroc"].mean())
+    return {"semente": int(res["semente"]), "rotulos_embaralhados": bool(res.get("rotulos_embaralhados", False)),
+            "auroc_por_epoca": [round(float(a), 4) for a in cur["auroc"]], "auroc_media": media,
+            "auroc_melhor_epoca": res["validacao_com_correcao"]["auroc"], "epoca_melhor": res["epoca_melhor"],
+            "auprc_melhor_epoca": res["validacao_com_correcao"]["auprc"],
             "prevalencia_validacao": res["validacao_com_correcao"]["prevalencia"],
-            "epocas_rodadas": res["epocas_rodadas"], "criterio": f"|AUROC - 0,5| < {LIMITE_EMBARALHADO}",
-            "aprovado": abs(auroc - 0.5) < LIMITE_EMBARALHADO}
+            "epocas_rodadas": int(len(cur)), "criterio": f"|AUROC média das épocas - 0,5| < {LIMITE_EMBARALHADO}",
+            "aprovado": abs(media - 0.5) < LIMITE_EMBARALHADO}
+
+
+def treinar_embaralhado(cfg: dict, semente: int = 0, saida_raiz: str = SAIDA, so_avaliar: bool = False, **kw) -> dict:
+    """Treina o M1 com os rótulos do treino permutados (semente da permutação = semente do modelo)."""
+    saida = pasta_embaralhado(semente, saida_raiz)
+    if not so_avaliar:
+        treinar("M1", semente, 1e-4, cfg, saida, rotulos_embaralhados=True, retomar=True, **kw)
+    r = avaliar_embaralhado(saida)
+    if not r["rotulos_embaralhados"]:
+        raise RuntimeError(f"{saida} não é um treino com rótulos embaralhados")
+    return r
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--verificacao", choices=["pacientes", "sobreajuste", "embaralhado"], required=True)
+    ap.add_argument("--semente", type=int, default=0, help="embaralhado: semente da permutação e do modelo")
+    ap.add_argument("--so-avaliar", action="store_true", help="embaralhado: só reavalia um treino já feito")
     a = ap.parse_args(argv)
     cfg = yaml.safe_load(open("configs/base.yaml", encoding="utf-8"))
     if a.verificacao == "pacientes":
@@ -138,11 +168,14 @@ def main(argv=None) -> int:
         print("perda a cada 20 passos:", " ".join(f"{p:.4f}" for p in r["perdas_a_cada_20"]))
         print(f"perda inicial {r['perda_inicial']:.4f} → final {r['perda_final']:.6f} ({r['criterio']})")
     else:
-        r = treinar_embaralhado(cfg)
-        print(f"\nRótulos embaralhados: AUROC na validação {r['auroc_validacao']:.4f} | AUPRC "
-              f"{r['auprc_validacao']:.4f} (prevalência {r['prevalencia_validacao']:.4f}) | {r['criterio']}")
-    _gravar(f"{a.verificacao}.json", r, SAIDA)
-    print("RESULTADO:", "APROVADO" if r["aprovado"] else "REPROVADO", f"(salvo em {SAIDA}/{a.verificacao}.json)")
+        r = treinar_embaralhado(cfg, semente=a.semente, so_avaliar=a.so_avaliar)
+        print(f"\nRótulos embaralhados, semente {r['semente']}: AUROC por época {r['auroc_por_epoca']}")
+        print(f"AUROC média {r['auroc_media']:.4f} | melhor época {r['epoca_melhor']} (AUROC "
+              f"{r['auroc_melhor_epoca']:.4f}, AUPRC {r['auprc_melhor_epoca']:.4f}, prevalência "
+              f"{r['prevalencia_validacao']:.4f}) | {r['criterio']}")
+    nome = f"embaralhado_s{a.semente}.json" if a.verificacao == "embaralhado" else f"{a.verificacao}.json"
+    _gravar(nome, r, SAIDA)
+    print("RESULTADO:", "APROVADO" if r["aprovado"] else "REPROVADO", f"(salvo em {SAIDA}/{nome})")
     return 0 if r["aprovado"] else 1
 
 
