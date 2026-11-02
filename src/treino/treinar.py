@@ -125,13 +125,16 @@ def treinar(modelo_nome: str, semente: int, taxa: float, cfg: dict, saida: str, 
     inicio, melhor, sem_melhora, curvas = 0, -1.0, 0, []
     ult = os.path.join(saida, "ultimo.pt")
     if retomar and os.path.exists(ult):
-        ck = torch.load(ult, map_location=disp, weights_only=False)
+        # carregado na CPU: o estado do gerador aleatório precisa ser um ByteTensor da CPU (com
+        # map_location=cuda ele ia para a GPU e o set_rng_state falhava); pesos e otimizador vão
+        # para a GPU sozinhos no load_state_dict
+        ck = torch.load(ult, map_location="cpu", weights_only=False)
         modelo.load_state_dict(ck["modelo"]); otim.load_state_dict(ck["otim"])
         agenda.load_state_dict(ck["agenda"]); escala.load_state_dict(ck["escala"])
         inicio, melhor, sem_melhora, curvas = ck["epoca"] + 1, ck["melhor"], ck["sem_melhora"], ck["curvas"]
-        torch.set_rng_state(ck["rng_cpu"])
+        torch.set_rng_state(ck["rng_cpu"].cpu())
         if disp.type == "cuda" and ck.get("rng_cuda") is not None:
-            torch.cuda.set_rng_state_all(ck["rng_cuda"])
+            torch.cuda.set_rng_state_all([e.cpu() for e in ck["rng_cuda"]])
         print(f"retomando da época {inicio}", flush=True)
 
     print(f"{modelo_nome} | semente {semente} | taxa {taxa:g} | {disp} | treino {resumo(tr)} | "
