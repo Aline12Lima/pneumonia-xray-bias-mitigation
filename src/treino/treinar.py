@@ -136,6 +136,9 @@ def treinar(modelo_nome: str, semente: int, taxa: float, cfg: dict, saida: str, 
 
     print(f"{modelo_nome} | semente {semente} | taxa {taxa:g} | {disp} | treino {resumo(tr)} | "
           f"validação {resumo(va)} | workers {workers}", flush=True)
+    if sem_melhora >= paciencia:                         # a sessão caiu depois da parada antecipada
+        print(f"  parada antecipada já atingida na época {inicio - 1}: só a avaliação final", flush=True)
+        inicio = epocas_max
     for epoca in range(inicio, epocas_max):
         t0 = time.time()
         ds_tr.definir_epoca(epoca)
