@@ -7,7 +7,8 @@
 - O aumento de cada imagem depende só de (semente, época, índice): o resultado é o mesmo com
   qualquer número de workers do DataLoader (determinismo, passo 5.6).
 - Antes de usar, confere o SHA-256 de cada arquivo contra ``/out/<base>/cache_hashes.csv``
-  (passo 5.1): se uma imagem mudou, o carregador para.
+  (passo 5.1): se uma imagem mudou, o carregador para. A conferência roda uma vez por sessão do
+  notebook (marca em ``/scratch``, que o Redivis apaga a cada reinício), não a cada treino.
 
 **Teste:** este módulo não lê as listas de teste, de propósito (trava do protocolo v1.1, §5).
 O teste só é carregado depois de 21/11, por outro módulo, na F6.
@@ -59,7 +60,25 @@ def ler_particao(base: str, particao: str, verificar_hashes: bool = True, raiz: 
     return df[["id", "paciente", "rotulo", "caminho", "fonte"]].reset_index(drop=True)
 
 
-def conferir_hashes(df: pd.DataFrame, tabela_hashes: str) -> None:
+# Marca de "já conferido nesta sessão" (F5 › Todas › Orçamento): o /scratch do Redivis é apagado a cada
+# reinício, então a conferência completa roda uma vez por sessão, e não a cada treino.
+MARCAS = os.environ.get("MARCAS_HASHES", "/scratch/.hashes_conferidos")
+
+
+def _chave(df: pd.DataFrame, tabela_hashes: str) -> str:
+    h = hashlib.sha256()
+    with open(tabela_hashes, "rb") as f:
+        h.update(f.read())
+    for ident, caminho in zip(df["id"], df["caminho"]):
+        h.update(f"{ident}\t{caminho}\n".encode())
+    return h.hexdigest()
+
+
+def conferir_hashes(df: pd.DataFrame, tabela_hashes: str, marcas: str | None = None) -> None:
+    marcas = MARCAS if marcas is None else marcas
+    marca = os.path.join(marcas, _chave(df, tabela_hashes)) if marcas else None
+    if marca and os.path.exists(marca):
+        return                                          # as mesmas imagens já foram conferidas nesta sessão
     ref = pd.read_csv(tabela_hashes, usecols=["id", "sha256"]).astype(str).drop_duplicates("id").set_index("id")["sha256"]
     faltam = [i for i in df["id"] if i not in ref.index]
     if faltam:
@@ -71,6 +90,12 @@ def conferir_hashes(df: pd.DataFrame, tabela_hashes: str) -> None:
                 ruins.append(ident)
     if ruins:
         raise RuntimeError(f"{len(ruins)} arquivos do cache mudaram desde o passo 5.1 (ex.: {ruins[0]})")
+    if marca:
+        try:
+            os.makedirs(marcas, exist_ok=True)
+            open(marca, "w").close()
+        except OSError:
+            pass                                        # sem marca, só confere de novo no próximo treino
 
 
 class ImagensCache(Dataset):
