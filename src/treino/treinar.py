@@ -21,6 +21,7 @@ da validação: a validação só verifica se a correção funcionou.
 Uso (notebook do ``treino_modelos``, com GPU):
     python -m src.treino.treinar --modelo M1 --semente 0 --taxa 1e-4
     python -m src.treino.treinar --modelo M1 --semente 0 --taxa 1e-4 --retomar
+    python -m src.treino.treinar --modelo M1 --semente 0 --taxa 1e-4 --repeticao 1 --retomar   # passo 5.6
 """
 from __future__ import annotations
 
@@ -219,11 +220,13 @@ def main(argv=None) -> int:
     ap.add_argument("--taxa", type=float, required=True)
     ap.add_argument("--retomar", action="store_true", help="continua do ultimo.pt, se existir")
     ap.add_argument("--epocas", type=int, default=None, help="limite de épocas (só para testes)")
+    ap.add_argument("--repeticao", type=int, default=0,
+                    help="determinismo (passo 5.6): repete a mesma configuração numa pasta _rep<N>")
     a = ap.parse_args(argv)
     cfg = yaml.safe_load(open("configs/base.yaml", encoding="utf-8"))
     if a.taxa not in [float(t) for t in cfg["treino"]["busca_taxa"]]:
         raise SystemExit(f"taxa {a.taxa} fora da grade do protocolo {cfg['treino']['busca_taxa']}")
-    saida = f"/out/treinos/{a.modelo}_s{a.semente}_lr{a.taxa:g}"
+    saida = f"/out/treinos/{a.modelo}_s{a.semente}_lr{a.taxa:g}" + (f"_rep{a.repeticao}" if a.repeticao else "")
     treinar(a.modelo, a.semente, a.taxa, cfg, saida, retomar=a.retomar, epocas_max=a.epocas)
     return 0
 
