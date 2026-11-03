@@ -67,6 +67,11 @@ def baixar(base: str) -> None:
     for nome in LISTAS[base]:
         shutil.copyfile(f"{tmp}/{nome}", f"{raiz}/listas/{nome}")
     shutil.copyfile(f"{tmp}/cache_hashes.csv", f"{raiz}/cache_hashes.csv")
+    if os.path.exists(f"{tmp}/covariaveis.csv"):          # passo 5.7: posição, idade, sexo, fabricante, medidas
+        shutil.copyfile(f"{tmp}/covariaveis.csv", f"{raiz}/covariaveis.csv")
+        print(f"  covariáveis: {len(pd.read_csv(f'{raiz}/covariaveis.csv'))} imagens")
+    else:
+        print("  covariáveis: ainda não enviadas (python -m src.cache.covariaveis --base <base> --enviar)")
     hashes = pd.read_csv(f"{raiz}/cache_hashes.csv")
     print(f"  listas: {', '.join(LISTAS[base])} | hashes: {len(hashes)} imagens")
 
