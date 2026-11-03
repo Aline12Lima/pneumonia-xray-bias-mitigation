@@ -37,20 +37,25 @@ def montar(pasta: str, dados: str = DADOS) -> pd.DataFrame:
     res = json.load(open(os.path.join(pasta, "resumo.json"), encoding="utf-8"))
     if res.get("rotulos_embaralhados"):
         raise ValueError("execução com rótulos embaralhados (sanidade): não entra na tabela de predições")
-    base = res["base"]
+    bases = res.get("bases", [res["base"]])                  # M3: Plus e RSNA
     pred = pd.read_csv(os.path.join(pasta, "predicoes_validacao.csv"), dtype={"id": str, "paciente": str})
-    cov_arq = os.path.join(dados, base, "covariaveis.csv")
-    if not os.path.exists(cov_arq):
-        raise FileNotFoundError(f"{cov_arq} não existe: rode src.cache.covariaveis no notebook da base e "
-                                "baixe de novo o cache (src.treino.baixar_cache)")
-    cov = pd.read_csv(cov_arq, dtype={"id": str, "id_estudo": str, "fabricante": "object"})
-    df = pred.merge(cov, on="id", how="left")
+    if "fonte" not in pred.columns:                         # execuções anteriores ao M3 (uma base só)
+        pred["fonte"] = bases[0]
+    covs = []
+    for b in bases:
+        cov_arq = os.path.join(dados, b, "covariaveis.csv")
+        if not os.path.exists(cov_arq):
+            raise FileNotFoundError(f"{cov_arq} não existe: rode src.cache.covariaveis no notebook da base e "
+                                    "baixe de novo o cache (src.treino.baixar_cache)")
+        covs.append(pd.read_csv(cov_arq, dtype={"id": str, "id_estudo": str, "fabricante": "object"}).assign(fonte=b))
+    cov = pd.concat(covs, ignore_index=True)
+    df = pred.merge(cov, on=["id", "fonte"], how="left")
     if df["posicao"].isna().any():
         raise RuntimeError(f"{int(df['posicao'].isna().sum())} imagens da validação sem covariáveis")
     medidas = [c for c in cov.columns if c.startswith("q_")]
     t = pd.DataFrame({
         "id_imagem": df["id"].astype(str), "id_paciente": df["paciente"].astype(str),
-        "id_estudo": df["id_estudo"].astype(str), "fonte": FONTE[base], "particao": "validacao",
+        "id_estudo": df["id_estudo"].astype(str), "fonte": df["fonte"].map(FONTE), "particao": "validacao",
         "modelo": res["modelo"], "semente": int(res["semente"]), "id_execucao": os.path.basename(pasta.rstrip("/")),
         "degradacao": "nenhuma", "nivel": "0", "rotulo": df["rotulo"].astype(int),
         "logit": df["logit_corrigido"].astype(float), "probabilidade": df["prob"].astype(float),

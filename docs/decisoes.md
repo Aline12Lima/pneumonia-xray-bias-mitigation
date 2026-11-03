@@ -126,6 +126,18 @@ Todas as decisões do projeto num só lugar, nomeadas por **Fase › Base › Te
 
 ---
 
+## F6 — Modelos
+
+| Decisão | Conteúdo | Por quê | Estado | Origem |
+|---|---|---|---|---|
+| F6 › M1 › Taxa | **1e-4** (busca na validação do Plus, semente 0: AUPRC 0,109 com 1e-4 contra 0,099 com 3e-4; AUROC 0,779 e 0,768) | Critério do protocolo (§7.2): AUPRC na validação da fonte, mesma grade para os três modelos. Os pilotos da F5 são a busca do M1 (F5 › Todas › Orçamento) | Tomada (3/11) | `/out/treinos/M1_s0_lr*/resumo.json` |
+| F6 › M2 › Taxa | **3e-4** (busca na validação do RSNA, semente 0: AUPRC 0,648 com 3e-4 contra 0,643 com 1e-4; AUROC 0,872 e 0,874; melhor época 5 de 11 e 2 de 8) | Mesmo critério; a diferença é pequena, mas a regra é fixa | Tomada (3/11) | `/out/treinos/M2_s0_lr*/resumo.json` |
+| F6 › M3 › Época balanceada | Cada época usa **todas** as 12.100 imagens de treino do Plus e **12.100 do RSNA sorteadas sem reposição**, com sorteio e ordem fixados por (semente, época); ao longo das épocas, todas as 17.948 do RSNA aparecem | Equilíbrio exato 50/50 por época, sem repetir imagem dentro da época (§5: "amostragem balanceada por fonte"). Alternativa descartada: amostrador ponderado com reposição (50/50 só em média, com repetições) | Tomada (3/11), antes de qualquer treino do M3 | `src/treino/treinar.py` |
+| F6 › M3 › Parada antecipada | AUPRC = **média simples** da AUPRC da validação do Plus e da AUPRC da validação do RSNA | Coerente com o balanceamento e com "validação por fonte" (§5). Na validação conjunta, o Plus seria 87% das imagens e decidiria a parada sozinho | Tomada (3/11), antes de qualquer treino do M3 | `src/treino/treinar.py` |
+| F6 › M3 › Correção de prior | Duas regras calculadas na validação: **3a**, uma correção única da mistura balanceada (π do treino = média dos π de treino das fontes; π natural = média dos π naturais); **3c**, cada imagem recebe a correção da sua fonte de treino (Plus: a do M1; RSNA: zero). **Principal = a de menor ECE médio** das validações do Plus e do RSNA (ECE de 15 faixas de igual massa, antes da temperatura); a outra é análise de sensibilidade em todas as bases. Imagem externa (PadChest) recebe a correção da mistura nas duas regras. O logit sem correção fica salvo | O M3 reconhece a fonte da imagem e aprende uma prevalência por fonte (cerca de 20% no Plus enriquecido, 22,6% no RSNA). Uma correção única deixaria o Plus descalibrado, e a temperatura (igual para todas as imagens) não corrige uma fonte só. A correção não muda a discriminação dentro de cada fonte nem a parada antecipada. Regra de escolha fixada antes de ver a validação do M3; o teste não participa | Tomada (3/11), antes de qualquer treino do M3 | `src/treino/treinar.py` (`correcoes_m3`) |
+
+---
+
 ## Decisões ainda abertas
 
 Nenhuma. Todas as decisões da fase 4 foram tomadas em 28 e 30/10/2026; o texto está no protocolo v1.1 (`protocolo/protocolo_v1.1.md`).
