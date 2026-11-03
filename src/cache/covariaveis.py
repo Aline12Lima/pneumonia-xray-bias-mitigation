@@ -52,13 +52,16 @@ def montar(base: str, elegiveis: pd.DataFrame, passada: pd.DataFrame, ids: pd.Se
     pa = passada[["id", "fabricante"] + MEDIDAS].copy()
     pa["id"] = pa["id"].astype(str)
     pa = pa.drop_duplicates("id", keep="last")
+    pa["_na_passada"] = True
     pa["fabricante"] = [None if pd.isna(f) or str(f).strip() in ("", "nan") else normalizar_fabricante(f)
                         for f in pa["fabricante"]]
     ids = pd.Series(sorted(set(ids.astype(str))), name="id")
     df = ids.to_frame().merge(el, on="id", how="left").merge(pa, on="id", how="left")
-    sem_el, sem_pa = int(df["posicao"].isna().sum()), int(df[MEDIDAS[0]].isna().sum())
+    # falta de verdade = imagem sem linha nas elegíveis ou na passada. Medidas vazias com a linha presente
+    # são permitidas (o schema aceita): é a máscara de pulmão vazia, marcada na passada (q_aux_roi_vazia)
+    sem_el, sem_pa = int(df["posicao"].isna().sum()), int(df["_na_passada"].isna().sum())
     if sem_el or sem_pa:
-        raise RuntimeError(f"{base}: {sem_el} imagens sem linha nas elegíveis e {sem_pa} sem medidas na passada")
+        raise RuntimeError(f"{base}: {sem_el} imagens sem linha nas elegíveis e {sem_pa} sem linha na passada")
     return df[["id", "id_estudo", "posicao", "idade", "sexo", "fabricante"] + MEDIDAS]
 
 
@@ -67,7 +70,8 @@ def resumo(df: pd.DataFrame) -> dict:
             "sexo": df["sexo"].value_counts(dropna=False).to_dict(),
             "idade_min_max": [int(df["idade"].min()), int(df["idade"].max())],
             "idade_vazia": int(df["idade"].isna().sum()), "idade_fora_18_100": int((~df["idade"].between(18, 100)).sum()),
-            "fabricante": df["fabricante"].value_counts(dropna=False).to_dict()}
+            "fabricante": df["fabricante"].value_counts(dropna=False).to_dict(),
+            "medidas_vazias (máscara vazia)": int(df[[m for m in MEDIDAS if m != "q_enquadramento"]].isna().all(axis=1).sum())}
 
 
 def main(argv=None) -> int:
