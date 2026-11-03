@@ -38,7 +38,15 @@ def test_covariaveis_rsna_fabricante_vazio_e_falta_imagem():
     cov = montar_cov("rsna", el, _passada(["1.1", "1.2"], fab=(np.nan, np.nan)), pd.Series(["1.1", "1.2"]))
     assert cov["fabricante"].isna().all()
     with pytest.raises(RuntimeError):
-        montar_cov("rsna", el, _passada(["1.1"]), pd.Series(["1.1", "1.2"]))
+        montar_cov("rsna", el, _passada(["1.1"]), pd.Series(["1.1", "1.2"]))   # sem linha na passada
+
+
+def test_covariaveis_aceita_mascara_vazia():
+    el = _elegiveis_plus()
+    pa = _passada(el["chave_dcm"])
+    pa.loc[0, [m for m in MEDIDAS if m != "q_enquadramento"]] = np.nan      # máscara vazia
+    cov = montar_cov("plus", el, pa, el["chave_dcm"])
+    assert len(cov) == 6 and cov["q_brilho"].isna().sum() == 1
 
 
 def _execucao(tmp_path, base="plus", embaralhado=False):
