@@ -84,3 +84,17 @@ def test_codigo_de_treino_nao_le_teste_trancado():
     import pathlib
     for arq in pathlib.Path("src/treino").glob("*.py"):
         assert "teste_trancado" not in arq.read_text(encoding="utf-8"), arq
+
+
+def test_conferencia_de_hashes_uma_vez_por_sessao(tmp_path):
+    from src.treino.carregador import conferir_hashes, PARTICOES
+    raiz, cache = _cache(tmp_path)
+    df = ler_particao("plus", "treino", raiz=raiz, verificar_hashes=False)
+    tabela = PARTICOES["plus"]["hashes"].replace("/out", raiz, 1)
+    marcas = str(tmp_path / "marcas")
+    conferir_hashes(df, tabela, marcas=marcas)               # confere e deixa a marca
+    arq = sorted(cache.iterdir())[0]
+    cv2.imwrite(str(arq), np.zeros((320, 320), np.uint8))
+    conferir_hashes(df, tabela, marcas=marcas)               # mesma sessão: não confere de novo
+    with pytest.raises(RuntimeError):
+        conferir_hashes(df, tabela, marcas=str(tmp_path / "outra_sessao"))   # sessão nova: pega a mudança
