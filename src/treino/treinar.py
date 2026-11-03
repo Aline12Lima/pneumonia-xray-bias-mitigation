@@ -22,6 +22,13 @@ Uso (notebook do ``treino_modelos``, com GPU):
     python -m src.treino.treinar --modelo M1 --semente 0 --taxa 1e-4
     python -m src.treino.treinar --modelo M1 --semente 0 --taxa 1e-4 --retomar
     python -m src.treino.treinar --modelo M1 --semente 0 --taxa 1e-4 --repeticao 1 --retomar   # passo 5.6
+    python -m src.treino.treinar --modelo M3 --semente 0 --taxa 1e-4 --retomar                 # F6
+
+M3 (F6 › M3, decisões de 3/11): Plus + RSNA; cada época usa todas as 12.100 imagens de treino do Plus e
+12.100 do RSNA sorteadas sem reposição (por semente e época); parada antecipada pela média simples das
+AUPRCs das validações das duas fontes; correção de prior 3a (única, da mistura) e 3c (pela fonte de
+treino da imagem) calculadas na validação, e a principal é a de menor ECE médio das duas validações.
+Tudo o que o treino imprime também vai para ``log.txt`` na pasta da execução.
 """
 from __future__ import annotations
 
@@ -42,7 +49,7 @@ from src.treino.carregador import ImagensCache, ler_particao, resumo
 from src.treino.modelo import correcao_prior, criar_densenet121, fixar_sementes
 
 RAIZ_DADOS = "/out/dados"
-BASES_DO_MODELO = {"M1": ["plus"], "M2": ["rsna"]}           # M3 (as duas, balanceado) entra na F6
+BASES_DO_MODELO = {"M1": ["plus"], "M2": ["rsna"], "M3": ["plus", "rsna"]}
 
 
 # ------------------------------------------------------------------ métricas
@@ -70,6 +77,45 @@ def prevalencias(base: str, listas_json: str = "data/splits/listas_sha256.json")
     usado = d.get("treino_subamostra", tr)
     pi_tr = usado["positivos"] / (usado["imagens"] - usado.get("incertos", 0))
     return pi_nat, pi_tr
+
+
+def correcoes_m3(bases=("plus", "rsna"), listas_json: str = "data/splits/listas_sha256.json") -> dict:
+    """Correções de prior do M3 (F6 › M3 › Correção de prior), em unidades de logit.
+
+    3c: cada imagem recebe a correção da fonte de treino a que pertence (Plus: a do M1; RSNA: zero).
+    3a: uma correção única, da mistura balanceada: π do treino = média dos π de treino das fontes,
+    π natural = média dos π naturais. A imagem externa (PadChest) recebe a 3a nas duas regras.
+    """
+    lo = lambda p: math.log(p / (1 - p))                                    # noqa: E731
+    pis = {b: prevalencias(b, listas_json) for b in bases}
+    por_fonte = {b: lo(pn) - lo(pt) for b, (pn, pt) in pis.items()}
+    pi_nat_mix = float(np.mean([pis[b][0] for b in bases]))
+    pi_tr_mix = float(np.mean([pis[b][1] for b in bases]))
+    unica = lo(pi_nat_mix) - lo(pi_tr_mix)
+    return {"pis": {b: {"natural": pn, "treino": pt} for b, (pn, pt) in pis.items()},
+            "3c": por_fonte, "3a": unica, "externa": unica,
+            "pi_natural_mistura": pi_nat_mix, "pi_treino_mistura": pi_tr_mix}
+
+
+def indices_balanceados(fontes: np.ndarray, semente: int, epoca: int) -> list[int]:
+    """Época do M3 (F6 › M3 › Época balanceada): todas as imagens da menor fonte e o mesmo número da
+    outra, sorteadas sem reposição; sorteio e ordem fixados por (semente, época)."""
+    g = torch.Generator().manual_seed(semente * 100_003 + epoca)
+    grupos = [np.flatnonzero(fontes == f) for f in sorted(set(fontes))]
+    n = min(len(i) for i in grupos)
+    escolhidos = []
+    for i in grupos:
+        escolhidos.append(i if len(i) == n else i[torch.randperm(len(i), generator=g)[:n].numpy()])
+    todos = np.concatenate(escolhidos)
+    return todos[torch.randperm(len(todos), generator=g).numpy()].tolist()
+
+
+def metricas_por_fonte(y: np.ndarray, p: np.ndarray, fontes: np.ndarray) -> dict:
+    """Métricas de cada fonte e a média simples entre as fontes (critério de parada do M3)."""
+    por = {f: metricas(y[fontes == f], p[fontes == f]) for f in sorted(set(fontes))}
+    return {"por_fonte": por, "auroc": float(np.mean([m["auroc"] for m in por.values()])),
+            "auprc": float(np.mean([m["auprc"] for m in por.values()])),
+            "ece": float(np.mean([m["ece"] for m in por.values()]))}
 
 
 # ------------------------------------------------------------------ uma época
@@ -100,16 +146,26 @@ def treinar(modelo_nome: str, semente: int, taxa: float, cfg: dict, saida: str, 
     workers = min(8, os.cpu_count() or 2) if workers is None else workers
 
     bases = BASES_DO_MODELO[modelo_nome]
-    if len(bases) != 1:
-        raise NotImplementedError("M3 (duas bases, amostragem balanceada) entra na F6")
-    base = bases[0]
-    tr = ler_particao(base, "treino", raiz=raiz)
-    va = ler_particao(base, "validacao", raiz=raiz)
-    if limite:                                           # só para testes rápidos
-        tr, va = tr.head(limite), va.head(limite)
+    multi = len(bases) > 1                               # M3: Plus + RSNA, época balanceada por fonte
+    if multi and rotulos_embaralhados:
+        raise ValueError("a sanidade com rótulos embaralhados é só para M1 e M2")
+    base = "+".join(bases)
+    trs, vas = [], []
+    for b in bases:
+        tr_b, va_b = ler_particao(b, "treino", raiz=raiz), ler_particao(b, "validacao", raiz=raiz)
+        if limite:                                       # só para testes rápidos
+            tr_b, va_b = tr_b.head(limite), va_b.head(limite)
+        trs.append(tr_b); vas.append(va_b)
+    tr = pd.concat(trs, ignore_index=True) if multi else trs[0]
+    va = pd.concat(vas, ignore_index=True) if multi else vas[0]
     if rotulos_embaralhados:                             # sanidade (passo 5.5): só o treino, a validação fica real
         tr = tr.assign(rotulo=np.random.default_rng(semente).permutation(tr["rotulo"].to_numpy()))
-    pi_nat, pi_tr = prevalencias(base)
+    if multi:
+        corr = correcoes_m3(bases)
+        pi_nat, pi_tr = corr["pi_natural_mistura"], corr["pi_treino_mistura"]
+    else:
+        pi_nat, pi_tr = prevalencias(base)
+    fontes_tr, fontes_va = tr["fonte"].to_numpy(), va["fonte"].to_numpy()
 
     ds_tr = ImagensCache(tr, a_cfg, semente=semente)
     ds_va = ImagensCache(va, None)
@@ -140,15 +196,24 @@ def treinar(modelo_nome: str, semente: int, taxa: float, cfg: dict, saida: str, 
 
     print(f"{modelo_nome} | semente {semente} | taxa {taxa:g} | {disp} | treino {resumo(tr)} | "
           f"validação {resumo(va)} | workers {workers}", flush=True)
+    if multi:
+        for b, tr_b, va_b in zip(bases, trs, vas):
+            print(f"  {b}: treino {resumo(tr_b)} | validação {resumo(va_b)}", flush=True)
+        print(f"  época balanceada: {min(len(t) for t in trs)} imagens de cada fonte, sorteadas sem reposição",
+              flush=True)
     if sem_melhora >= paciencia:                         # a sessão caiu depois da parada antecipada
         print(f"  parada antecipada já atingida na época {inicio - 1}: só a avaliação final", flush=True)
         inicio = epocas_max
     for epoca in range(inicio, epocas_max):
         t0 = time.time()
         ds_tr.definir_epoca(epoca)
-        g = torch.Generator().manual_seed(semente * 100_003 + epoca)
-        ld_tr = DataLoader(ds_tr, batch_size=lote, shuffle=True, generator=g, num_workers=workers,
-                           pin_memory=disp.type == "cuda", drop_last=False)
+        if multi:
+            ld_tr = DataLoader(ds_tr, batch_size=lote, sampler=indices_balanceados(fontes_tr, semente, epoca),
+                               num_workers=workers, pin_memory=disp.type == "cuda", drop_last=False)
+        else:                                            # M1 e M2: exatamente como no piloto (determinismo)
+            g = torch.Generator().manual_seed(semente * 100_003 + epoca)
+            ld_tr = DataLoader(ds_tr, batch_size=lote, shuffle=True, generator=g, num_workers=workers,
+                               pin_memory=disp.type == "cuda", drop_last=False)
         modelo.train()
         soma, n = 0.0, 0
         for x, y in ld_tr:
@@ -164,10 +229,16 @@ def treinar(modelo_nome: str, semente: int, taxa: float, cfg: dict, saida: str, 
         agenda.step()
         t_treino = time.time() - t0
         z, yv, perda_va = _logits(modelo, ld_va, disp)
-        m = metricas(yv, 1 / (1 + np.exp(-z)))
+        if multi:                                        # média simples das fontes (F6 › M3 › Parada antecipada)
+            m = metricas_por_fonte(yv, 1 / (1 + np.exp(-z)), fontes_va)
+        else:
+            m = metricas(yv, 1 / (1 + np.exp(-z)))
         linha = {"epoca": epoca, "perda_treino": soma / n, "perda_validacao": perda_va, "auroc": m["auroc"],
                  "auprc": m["auprc"], "ece_sem_correcao": m["ece"], "taxa": agenda.get_last_lr()[0],
                  "seg_treino": t_treino, "seg_total": time.time() - t0}
+        if multi:
+            for f, mf in m["por_fonte"].items():
+                linha[f"auroc_{f}"], linha[f"auprc_{f}"] = mf["auroc"], mf["auprc"]
         curvas.append(linha)
         pd.DataFrame(curvas).to_csv(os.path.join(saida, "curvas.csv"), index=False)
         if m["auprc"] > melhor:
@@ -179,8 +250,11 @@ def treinar(modelo_nome: str, semente: int, taxa: float, cfg: dict, saida: str, 
                     "escala": escala.state_dict(), "epoca": epoca, "melhor": melhor, "sem_melhora": sem_melhora,
                     "curvas": curvas, "rng_cpu": torch.get_rng_state(),
                     "rng_cuda": torch.cuda.get_rng_state_all() if disp.type == "cuda" else None}, ult)
+        fontes_txt = "".join(f" [{f}: {mf['auroc']:.4f} / {mf['auprc']:.4f}]" for f, mf in m["por_fonte"].items()) \
+            if multi else ""
         print(f"  época {epoca:2d} | perda {linha['perda_treino']:.4f} / {perda_va:.4f} | AUROC {m['auroc']:.4f} | "
-              f"AUPRC {m['auprc']:.4f} | {linha['seg_total']:.0f} s{' *' if sem_melhora == 0 else ''}", flush=True)
+              f"AUPRC {m['auprc']:.4f}{fontes_txt} | {linha['seg_total']:.0f} s{' *' if sem_melhora == 0 else ''}",
+              flush=True)
         if sem_melhora >= paciencia:
             print(f"  parada antecipada: {paciencia} épocas sem melhorar a AUPRC", flush=True)
             break
@@ -188,29 +262,90 @@ def treinar(modelo_nome: str, semente: int, taxa: float, cfg: dict, saida: str, 
     # ---------------------------------------------------------- melhor época, correção de prior
     modelo.load_state_dict(torch.load(os.path.join(saida, "melhor.pt"), map_location=disp, weights_only=True))
     z, yv, _ = _logits(modelo, ld_va, disp)
-    zc = correcao_prior(z, pi_nat, pi_tr)
-    p_bruta, p_corr = 1 / (1 + np.exp(-z)), 1 / (1 + np.exp(-zc))
-    pd.DataFrame({"id": va["id"], "paciente": va["paciente"], "rotulo": yv.astype(int), "logit": z,
-                  "logit_corrigido": zc, "prob": p_corr}).to_csv(os.path.join(saida, "predicoes_validacao.csv"),
-                                                                    index=False)
+    p_bruta = 1 / (1 + np.exp(-z))
+    pred = {"id": va["id"], "paciente": va["paciente"], "fonte": va["fonte"], "rotulo": yv.astype(int), "logit": z}
+    extra = {}
+    if multi:
+        # F6 › M3 › Correção de prior: 3a e 3c calculadas; principal = menor ECE médio das validações das fontes
+        z3c = z + np.array([corr["3c"][f] for f in fontes_va])
+        z3a = z + corr["3a"]
+        sig = lambda v: 1 / (1 + np.exp(-v))                               # noqa: E731
+        m3a, m3c = metricas_por_fonte(yv, sig(z3a), fontes_va), metricas_por_fonte(yv, sig(z3c), fontes_va)
+        principal = "3c" if m3c["ece"] <= m3a["ece"] else "3a"
+        zc = z3c if principal == "3c" else z3a
+        pred.update({"logit_corrigido_3a": z3a, "logit_corrigido_3c": z3c})
+        extra = {"correcao_prior": corr, "correcao_principal": principal,
+                 "validacao_3a": m3a, "validacao_3c": m3c,
+                 "validacao_sem_correcao_por_fonte": metricas_por_fonte(yv, p_bruta, fontes_va)}
+    else:
+        zc = correcao_prior(z, pi_nat, pi_tr)
+        extra = {"correcao_prior": {base: correcao_prior(np.zeros(1), pi_nat, pi_tr)[0].item(),
+                                    "externa": correcao_prior(np.zeros(1), pi_nat, pi_tr)[0].item()}}
+    p_corr = 1 / (1 + np.exp(-zc))
+    pred.update({"logit_corrigido": zc, "prob": p_corr})
+    pd.DataFrame(pred).to_csv(os.path.join(saida, "predicoes_validacao.csv"), index=False)
     cur = pd.DataFrame(curvas)
-    res = {"modelo": modelo_nome, "semente": semente, "taxa": taxa, "base": base,
+    res = {"modelo": modelo_nome, "semente": semente, "taxa": taxa, "base": base, "bases": bases,
            "rotulos_embaralhados": rotulos_embaralhados,
            "epoca_melhor": int(cur.loc[cur["auprc"].idxmax(), "epoca"]), "epocas_rodadas": int(len(cur)),
            "seg_por_epoca_mediana": float(cur["seg_total"].median()),
            "pi_natural_treino": pi_nat, "pi_treino_usado": pi_tr,
            "validacao_sem_correcao": metricas(yv, p_bruta), "validacao_com_correcao": metricas(yv, p_corr),
+           **extra,
            "maquina": {"dispositivo": str(disp), "gpu": torch.cuda.get_device_name(0) if disp.type == "cuda" else None,
                        "torch": torch.__version__, "python": platform.python_version()},
            "receita": {"treino": t_cfg, "aumento": a_cfg, "workers": workers}}
+    if multi:                                            # para o M3, a métrica da fonte é a média das fontes
+        res["validacao_com_correcao_por_fonte"] = metricas_por_fonte(yv, p_corr, fontes_va)
     json.dump(res, open(os.path.join(saida, "resumo.json"), "w", encoding="utf-8"), indent=2, ensure_ascii=False)
     sc, cc = res["validacao_sem_correcao"], res["validacao_com_correcao"]
-    print(f"\nMelhor época: {res['epoca_melhor']} | AUROC {cc['auroc']:.4f} | AUPRC {cc['auprc']:.4f}")
-    print(f"Correção de prior (π natural {pi_nat:.4f}, π do treino {pi_tr:.4f}):")
-    print(f"  sem correção: probabilidade média {sc['prob_media']:.4f} | ECE {sc['ece']:.4f}")
-    print(f"  com correção: probabilidade média {cc['prob_media']:.4f} | ECE {cc['ece']:.4f} | "
-          f"prevalência observada {cc['prevalencia']:.4f}")
+    if multi:
+        mel = cur.loc[cur["auprc"].idxmax()]
+        txt = " | ".join(f"{f}: AUROC {mel[f'auroc_{f}']:.4f}, AUPRC {mel[f'auprc_{f}']:.4f}" for f in bases)
+        print(f"\nMelhor época: {res['epoca_melhor']} | média das fontes: AUROC {mel['auroc']:.4f}, "
+              f"AUPRC {mel['auprc']:.4f} | {txt}")
+        for nome, mm in (("sem correção", extra["validacao_sem_correcao_por_fonte"]), ("3a (única)", m3a),
+                         ("3c (pela fonte)", m3c)):
+            txt = " | ".join(f"{f}: prob média {v['prob_media']:.4f}, ECE {v['ece']:.4f}, prevalência "
+                             f"{v['prevalencia']:.4f}" for f, v in mm["por_fonte"].items())
+            print(f"  {nome:16s} ECE médio {mm['ece']:.4f} | {txt}")
+        print(f"Correção principal (menor ECE médio): {principal}")
+    else:
+        print(f"\nMelhor época: {res['epoca_melhor']} | AUROC {cc['auroc']:.4f} | AUPRC {cc['auprc']:.4f}")
+        print(f"Correção de prior (π natural {pi_nat:.4f}, π do treino {pi_tr:.4f}):")
+        print(f"  sem correção: probabilidade média {sc['prob_media']:.4f} | ECE {sc['ece']:.4f}")
+        print(f"  com correção: probabilidade média {cc['prob_media']:.4f} | ECE {cc['ece']:.4f} | "
+              f"prevalência observada {cc['prevalencia']:.4f}")
     return res
+
+
+class _Log:
+    """Copia tudo o que o treino imprime para um arquivo (acompanhar pelo Files do Redivis)."""
+
+    def __init__(self, caminho: str):
+        self.caminho = caminho
+
+    def __enter__(self):
+        import sys
+        self._orig, self._f = sys.stdout, open(self.caminho, "a", encoding="utf-8")
+        self._f.write(f"\n=== {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        orig, f = self._orig, self._f
+
+        class _T:
+            def write(self, t):
+                orig.write(t); f.write(t); f.flush()
+
+            def flush(self):
+                orig.flush(); f.flush()
+
+        sys.stdout = _T()
+        return self
+
+    def __exit__(self, *exc):
+        import sys
+        sys.stdout = self._orig
+        self._f.close()
+        return False
 
 
 def main(argv=None) -> int:
@@ -227,7 +362,9 @@ def main(argv=None) -> int:
     if a.taxa not in [float(t) for t in cfg["treino"]["busca_taxa"]]:
         raise SystemExit(f"taxa {a.taxa} fora da grade do protocolo {cfg['treino']['busca_taxa']}")
     saida = f"/out/treinos/{a.modelo}_s{a.semente}_lr{a.taxa:g}" + (f"_rep{a.repeticao}" if a.repeticao else "")
-    treinar(a.modelo, a.semente, a.taxa, cfg, saida, retomar=a.retomar, epocas_max=a.epocas)
+    os.makedirs(saida, exist_ok=True)
+    with _Log(os.path.join(saida, "log.txt")):          # a tela do notebook às vezes para de atualizar
+        treinar(a.modelo, a.semente, a.taxa, cfg, saida, retomar=a.retomar, epocas_max=a.epocas)
     return 0
 
 

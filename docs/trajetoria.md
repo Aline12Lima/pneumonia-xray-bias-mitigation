@@ -142,6 +142,11 @@ Os documentos produzidos em vários chats foram reunidos numa só pasta (`docs/`
 - **Portão G5 (linha de base estável), aprovado em 3/11:** M1 estável na validação (piloto nas duas taxas, sanidade aprovada); diferença entre execuções idênticas zero, abaixo da tolerância; orçamento decidido, com a compra de créditos como reserva.
 - **Máquina e créditos:** a Spot caiu várias vezes e, na manhã de 2/11, não havia L4 livre nem na standard (7,55 créditos por hora, contra cerca de 4,6 na Spot). Saldo: 91,58 créditos antes do piloto, 75,21 depois da sanidade. A saída da célula do notebook às vezes para de atualizar com o treino ainda rodando; o progresso real fica no `curvas.csv`.
 
+## 10. Modelos (F6, a partir de 3/11/2026)
+
+- **Passo 6.1, busca de taxa:** M1 pelos pilotos da F5 (1e-4); M2 em 3/11, semente 0: 1e-4 → AUROC 0,874, AUPRC 0,643 (prevalência 0,199), melhor época 2 de 8; 3e-4 → AUROC 0,872, AUPRC 0,648, melhor época 5 de 11. Escolhida 3e-4 (F6 › M2 › Taxa). No RSNA a correção de prior é zero (sem subamostragem), como esperado. A tela do notebook parou de atualizar durante os dois treinos; eles terminaram normalmente e a retomada só refez a avaliação final. A partir daqui, cada treino grava também um `log.txt` na pasta da execução.
+- **M3 implementado (3/11):** época balanceada, parada pela média das AUPRCs das fontes e correções 3a e 3c com escolha pela menor ECE médio (decisões F6 › M3). O caminho do M1 e do M2 ficou idêntico: um treino curto na CPU deu predições iguais bit a bit antes e depois da mudança.
+
 ---
 
 ## Próximos passos (pelo plano de execução)
