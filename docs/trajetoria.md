@@ -123,6 +123,20 @@ Os documentos produzidos em vários chats foram reunidos numa só pasta (`docs/`
 
 - **Passo 5.1 (30/10):** SHA-256 de cada arquivo do cache de 320 px, conferido contra as listas congeladas. Nenhum arquivo faltando: Plus 12.100 (treino sorteado), 18.147 (validação) e 35.457 (teste); RSNA 17.948, 2.417 e 5.037. Os hashes por partição estão em `../data/splits/cache_sha256.json`. O cache oficial do PadChest (8 bits, percentis na resolução original) é gerado na leitura dos pacotes da F8.
 - **Passo 5.2:** carregador do cache (`src/treino/carregador.py`), que confere os hashes antes de usar as imagens e não lê o teste.
+- **Passos 5.3 e 5.4 (1/11), piloto do M1, semente 0:** notebook "treino" do workflow `treino_modelos`, GPU NVIDIA L4 (g2-standard-4, Spot), cerca de 119 s por época (treino de 12.100 imagens e validação de 16.599). As duas taxas da grade pararam sozinhas pela AUPRC (paciência 5):
+
+| Taxa | Melhor época / épocas rodadas | AUROC | AUPRC (prevalência 0,020) | ECE sem → com correção de prior | Probabilidade média corrigida |
+|---|---|---|---|---|---|
+| 1e-4 | 7 / 13 | 0,779 | 0,109 | 0,083 → 0,032 | 0,034 |
+| 3e-4 | 9 / 15 | 0,768 | 0,099 | 0,082 → 0,018 | 0,022 |
+
+  A correção de prior (π natural 0,0215; π do treino 0,20) leva a probabilidade média para perto da prevalência observada. A escolha da taxa é feita na F6 (passo 6.1).
+- **Passo 5.5 (1 e 2/11), sanidade** (`src/treino/sanidade.py`), com critérios fixados no código antes de rodar:
+  - **pacientes:** nenhum paciente no treino e na validação ao mesmo tempo (Plus e RSNA), as quatro listas iguais às congeladas pelo SHA-256 e nenhum arquivo de teste em `/out/dados`: aprovado;
+  - **sobreajuste de um lote:** 32 imagens do Plus (16 positivas), sem aumento, 200 passos: perda 0,718 → 0,0004 (critério < 0,01): aprovado;
+  - **rótulos embaralhados:** M1 com os rótulos do treino permutados, avaliado na validação com os rótulos reais. Pelo critério original (|AUROC − 0,5| < 0,05 na melhor época), a semente 0 foi **reprovada** (0,5552, melhor época 0). Escolher a melhor de várias épocas sem sinal puxa o valor para longe de 0,5, então o critério foi revisto **antes** de rodar novas permutações: AUROC média de todas as épocas, |média − 0,5| < 0,05, em três permutações. Resultado: semente 0 média 0,510 (6 épocas), semente 1 0,492 (9), semente 2 0,503 (16), todas aprovadas; as melhores épocas teriam dado 0,555, 0,573 e 0,540. Os arquivos ficam em `/out/sanidade/` (`embaralhado.json` guarda a reprovação pelo critério original).
+  - **Correções feitas no caminho:** o `--retomar` treinava uma época a mais depois da parada antecipada e falhava na GPU ao restaurar o gerador aleatório; as duas falhas apareceram em quedas da Spot e foram corrigidas antes de qualquer treino da F6.
+- **Máquina e créditos:** a Spot caiu várias vezes e, na manhã de 2/11, não havia L4 livre nem na standard (7,55 créditos por hora, contra cerca de 4,6 na Spot). Saldo: 91,58 créditos antes do piloto, 75,21 depois da sanidade. A saída da célula do notebook às vezes para de atualizar com o treino ainda rodando; o progresso real fica no `curvas.csv`.
 
 ---
 

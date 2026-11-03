@@ -115,6 +115,15 @@ Todas as decisões do projeto num só lugar, nomeadas por **Fase › Base › Te
 
 ---
 
+## F5 — Linha de base
+
+| Decisão | Conteúdo | Por quê | Estado | Origem |
+|---|---|---|---|---|
+| F5 › M1 › Sanidade | Três verificações com critério fixado no código: pacientes (nenhum em duas partições, listas pelo SHA-256, nenhum arquivo de teste); sobreajuste de um lote (perda final < 0,01); rótulos embaralhados (AUROC média de todas as épocas, \|média − 0,5\| < 0,05, em três permutações, sementes 0 a 2) | O critério original dos rótulos embaralhados (só a melhor época) é viciado contra a aprovação: a melhor de várias épocas sem sinal fica longe de 0,5. A semente 0 reprovou por ele (0,5552); o critério foi revisto antes de rodar as sementes 1 e 2, e a reprovação fica registrada. Não é desvio: o protocolo não fixa o critério da sanidade | Tomada (1/11) | `src/treino/sanidade.py` |
+| F5 › M1 › Determinismo | Tolerância: \|ΔAUROC\| < 0,01 na validação, na melhor época, entre duas execuções idênticas (M1, semente 0, taxa 1e-4, mesmo código, GPU L4). Melhor época, diferença por época e maior diferença de logit são descritivas | Metade da margem de relevância do AUROC (0,02, Plano › Todas › Estatística): o ruído de uma execução idêntica tem de ficar bem abaixo do que o estudo lê como relevante. Fixada antes de rodar a repetição | Tomada (2/11) | `src/treino/determinismo.py` |
+
+---
+
 ## Decisões ainda abertas
 
 Nenhuma. Todas as decisões da fase 4 foram tomadas em 28 e 30/10/2026; o texto está no protocolo v1.1 (`protocolo/protocolo_v1.1.md`).
