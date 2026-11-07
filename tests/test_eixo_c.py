@@ -59,3 +59,16 @@ def test_ece_ponderado_igual_ao_simples_com_pesos_1():
     p = rng.random(3000)
     y = (rng.random(3000) < p).astype(float)
     assert abs(ece_ponderado(y, p, np.ones(3000)) - ece(y, p)) < 1e-9
+
+
+def test_smd_dentro_da_classe_e_suporte_comum():
+    from src.analises.eixo_c import smd_maxima, suporte_comum
+    rng = np.random.default_rng(3)
+    ref, ext = _base("a", 1000, 0, rng), _base("b", 1000, 0, rng)
+    ref["rotulo"] = (rng.random(1000) < 0.02).astype(int)                # prevalências diferentes
+    ref["x"] = rng.normal(0, 1, 1000) + 2 * ref["rotulo"]
+    ext["x"] = rng.normal(0, 1, 1000) + 2 * ext["rotulo"]               # mesma distribuição dentro da classe
+    assert smd_maxima(ref, ext, ["x"], np.ones(1000)) < 0.25             # misturando classes daria ~0,7
+    ext["q_contraste"] += 5                                              # quase sem sobreposição
+    mr, me = suporte_comum(ref, ext, ["q_contraste"])
+    assert me.mean() < 0.2 and mr.mean() < 0.2

@@ -11,8 +11,12 @@ Para cada par fonte → externa (no ensaio: M1 Plus → RSNA e M2 RSNA → Plus;
   quando |D_bruto| >= margem da métrica e o IC de D_bruto exclui zero; sem truncar as frações;
 - teste da família 3 (H2): D_S1 − D_S2 > 0 na AUROC, p unilateral por bootstrap; Holm nos pares;
   as outras métricas com Benjamini-Hochberg;
-- diagnóstico: tamanho efetivo da amostra, maior diferença média padronizada depois dos pesos (meta
-  < 0,1), maior peso e fração de pesos truncados;
+- diagnóstico: tamanho efetivo da amostra, maior diferença média padronizada **dentro de cada classe**
+  antes e depois dos pesos, maior peso e fração de pesos truncados;
+- leitura (F6 › Eixo C › Equilíbrio e suporte comum): se S1 ou S2 não chega a diferença padronizada
+  < 0,1, a parcela de qualidade e o teste de H2 do par são reportados, mas lidos como inconclusivos;
+- evidência complementar: o D_bruto recalculado só nas imagens da região de sobreposição (probabilidade
+  de origem entre 0,1 e 0,9, dentro de cada classe), com o número de imagens que sobram;
 - bootstrap por paciente em cada base, **reestimando os pesos** em cada reamostragem;
 - métricas por semente com os mesmos pesos (os pesos dependem só das imagens) e média entre sementes.
 
@@ -45,6 +49,8 @@ FONTES_TREINO = {"M1": ["chexpert_plus"], "M2": ["rsna"], "M3": ["chexpert_plus"
 METRICAS = ["auroc", "fnr", "fpr", "ece"]
 PIORA_SE_SOBE = {"fnr", "fpr", "ece"}
 TRUNCAR_PERCENTIL = 99
+EQUILIBRIO = 0.1                                          # meta do §8.5 (diferença média padronizada)
+SUPORTE = (0.1, 0.9)                                      # região de sobreposição (evidência complementar)
 SEMENTE = 2026
 
 
@@ -78,14 +84,35 @@ def pesos(ref: pd.DataFrame, ext: pd.DataFrame, cols: list[str], w_ref: np.ndarr
 
 
 def smd_maxima(ref: pd.DataFrame, ext: pd.DataFrame, cols: list[str], w: np.ndarray, w_ref=None) -> float:
+    """Maior diferença média padronizada, **dentro de cada classe** (onde os pesos agem)."""
     w_ref = np.ones(len(ref)) if w_ref is None else w_ref
     pior = 0.0
-    for c in cols:
-        a, b = ref[c].to_numpy(float), ext[c].to_numpy(float)
-        ma, mb = np.average(a, weights=w_ref), np.average(b, weights=w)
-        va, vb = np.average((a - ma) ** 2, weights=w_ref), np.average((b - mb) ** 2, weights=w)
-        pior = max(pior, abs(ma - mb) / np.sqrt((va + vb) / 2 + 1e-12))
+    for classe in (0, 1):
+        r, e = ref["rotulo"].to_numpy() == classe, ext["rotulo"].to_numpy() == classe
+        for c in cols:
+            a, b = ref.loc[r, c].to_numpy(float), ext.loc[e, c].to_numpy(float)
+            ma, mb = np.average(a, weights=w_ref[r]), np.average(b, weights=w[e])
+            va, vb = np.average((a - ma) ** 2, weights=w_ref[r]), np.average((b - mb) ** 2, weights=w[e])
+            pior = max(pior, abs(ma - mb) / np.sqrt((va + vb) / 2 + 1e-12))
     return float(pior)
+
+
+def suporte_comum(ref: pd.DataFrame, ext: pd.DataFrame, cols: list[str], w_ref=None) -> tuple[np.ndarray, np.ndarray]:
+    """Máscaras das imagens de ``ref`` e ``ext`` na região de sobreposição: probabilidade de origem entre
+    0,1 e 0,9 (classificador de domínio dentro de cada classe; F6 › Eixo C › Equilíbrio e suporte comum)."""
+    w_ref = np.ones(len(ref)) if w_ref is None else w_ref
+    mr, me = np.zeros(len(ref), bool), np.zeros(len(ext), bool)
+    for classe in (0, 1):
+        r, e = ref["rotulo"].to_numpy() == classe, ext["rotulo"].to_numpy() == classe
+        x = np.vstack([ref.loc[r, cols].to_numpy(float), ext.loc[e, cols].to_numpy(float)])
+        y = np.r_[np.ones(r.sum()), np.zeros(e.sum())]
+        sw = np.r_[w_ref[r] / w_ref[r].mean() * e.sum() / r.sum(), np.ones(e.sum())]   # classes equilibradas
+        clf = make_pipeline(StandardScaler(), LogisticRegression(max_iter=2000, C=1e6))
+        clf.fit(x, y, logisticregression__sample_weight=sw)
+        pr = clf.predict_proba(x)[:, 1]
+        dentro = (pr >= SUPORTE[0]) & (pr <= SUPORTE[1])
+        mr[np.flatnonzero(r)], me[np.flatnonzero(e)] = dentro[: r.sum()], dentro[r.sum():]
+    return mr, me
 
 
 def ece_ponderado(y, p, w, bins: int = 15) -> float:
@@ -157,6 +184,22 @@ def par(tab, modelo, externo, limiares, n_boot):
     refs = [_imagens(tab, modelo, f) for f in FONTES_TREINO[modelo]]
     ext = _imagens(tab, modelo, externo)
     est, diag = _calcular(refs, ext, limiares)
+    ref_all = pd.concat([i for i, _ in refs], ignore_index=True)
+    w_ref_all = np.concatenate([np.full(len(i), 1 / len(i)) for i, _ in refs]) * len(ref_all)
+    mr, me = suporte_comum(ref_all, ext[0], CLINICAS + COMPARAVEIS, w_ref_all)
+    sc = {"suporte_imagens_fonte": int(mr.sum()), "suporte_imagens_externo": int(me.sum()),
+          "suporte_fracao_externo": float(me.mean())}
+    cortes, ini = [], 0
+    for i, _ in refs:
+        cortes.append(mr[ini:ini + len(i)]); ini += len(i)
+    if all(c.sum() > 0 and i["rotulo"][c].nunique() == 2 for c, (i, _) in zip(cortes, refs)) and ext[0]["rotulo"][me].nunique() == 2:
+        r_int_sc = {k: float(np.mean([_media_sementes(i[c].reset_index(drop=True), {e: z[c] for e, z in zz.items()},
+                                                       limiares, np.ones(c.sum()))[k] for c, (i, zz) in zip(cortes, refs)]))
+                    for k in METRICAS}
+        ie = ext[0][me].reset_index(drop=True)
+        r_ext_sc = _media_sementes(ie, {e: z[me] for e, z in ext[1].items()}, limiares, np.ones(me.sum()))
+    else:
+        r_int_sc = r_ext_sc = None
     boots = []
     rng_idx = [indices_bootstrap(i["id_paciente"].to_numpy(), n_boot, SEMENTE + k) for k, (i, _) in enumerate(refs)]
     ext_idx = indices_bootstrap(ext[0]["id_paciente"].to_numpy(), n_boot, SEMENTE + 99)
@@ -174,7 +217,13 @@ def par(tab, modelo, externo, limiares, n_boot):
         prev = float(ext[0]["rotulo"].mean())
         linha = {"modelo": modelo, "interno": "+".join(FONTES_TREINO[modelo]), "externo": externo, "metrica": k,
                  **e, "d_clinica": e["d_bruto"] - e["d_s1"], "d_qualidade": e["d_s1"] - e["d_s2"],
-                 "margem": margem(k, prev), "bootstrap_validos": len(boots), **diag}
+                 "margem": margem(k, prev), "bootstrap_validos": len(boots), **diag, **sc}
+        if r_int_sc is not None:
+            linha["suporte_d_bruto"] = (r_ext_sc[k] - r_int_sc[k]) if k in PIORA_SE_SOBE else (r_int_sc[k] - r_ext_sc[k])
+        linha["s1_equilibrado"] = diag["s1_smd_max"] < EQUILIBRIO
+        linha["s2_equilibrado"] = diag["s2_smd_max"] < EQUILIBRIO
+        linha["leitura_h2"] = ("avaliável" if linha["s2_equilibrado"] and linha["s1_equilibrado"]
+                               else "inconclusivo (pesos sem equilíbrio)")
         if boots:
             for c in ("d_bruto", "d_s1", "d_s2"):
                 linha[f"{c}_ic_inf"], linha[f"{c}_ic_sup"] = np.percentile(b[c], [2.5, 97.5])
@@ -233,13 +282,16 @@ def main(argv=None) -> int:
         fr = (f" | parcela clínica {r['parcela_clinica']:+.2f}, qualidade {r['parcela_qualidade']:+.2f}"
               if pd.notna(r["parcela_qualidade"]) else " | sem fração")
         pq = f" | p (qualidade) {r['p_qualidade']:.3g}, aj. {r['p_ajustado']:.3g}" if "p_qualidade" in r and pd.notna(r.get("p_qualidade")) else ""
+        scd = f" | suporte comum: D_bruto {r['suporte_d_bruto']:+.3f}" if pd.notna(r.get("suporte_d_bruto")) else ""
         print(f"  {r['modelo']} {r['interno']} → {r['externo']} | {r['metrica']:5s} | D_bruto {r['d_bruto']:+.3f}{ic} | "
-              f"D_S1 {r['d_s1']:+.3f} | D_S2 {r['d_s2']:+.3f}{fr}{pq}")
+              f"D_S1 {r['d_s1']:+.3f} | D_S2 {r['d_s2']:+.3f}{fr}{pq}{scd} | {r['leitura_h2']}")
     d = res.drop_duplicates(["modelo", "externo"])
     for _, r in d.iterrows():
         print(f"  diagnóstico {r['modelo']} → {r['externo']} | SMD máx. antes {r['smd_max_antes']:.2f}, S1 {r['s1_smd_max']:.2f}, "
               f"S2 {r['s2_smd_max']:.2f} | tamanho efetivo S1 {r['s1_tamanho_efetivo']:.0f}, S2 {r['s2_tamanho_efetivo']:.0f} "
-              f"| peso máx. S2 {r['s2_peso_maximo']:.1f} | truncados S2 {r['s2_fracao_truncada']:.3f}")
+              f"| peso máx. S2 {r['s2_peso_maximo']:.1f} | truncados S2 {r['s2_fracao_truncada']:.3f} | suporte comum: "
+              f"{r['suporte_imagens_fonte']} da fonte, {r['suporte_imagens_externo']} do externo "
+              f"({r['suporte_fracao_externo']:.1%})")
     print(f"RESULTADO: OK (salvo em {saida}/eixo_c.csv)")
     return 0
 
