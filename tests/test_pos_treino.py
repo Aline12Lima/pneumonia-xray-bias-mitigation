@@ -37,3 +37,10 @@ def test_processar_m3_por_fonte(tmp_path):
     assert r["validacao"] == "conjunta" and set(r["por_fonte"]) == {"plus", "rsna"}
     assert r["limiar"]["sensibilidade"] >= 0.9 and r["temperatura"] > 0
     assert (tmp_path / "pos_treino.json").exists()
+
+
+def test_m3_limiar_por_fonte(tmp_path):
+    test_processar_m3_por_fonte(tmp_path)
+    r = json.load(open(tmp_path / "pos_treino.json"))
+    for f in ("plus", "rsna"):
+        assert r["limiar_por_fonte"][f]["sensibilidade"] >= 0.9

@@ -155,6 +155,8 @@ Os documentos produzidos em vários chats foram reunidos numa só pasta (`docs/`
 | M3 (1e-4), Plus / RSNA | 0,784 (0,010) / 0,872 (0,007) | 0,099 (0,008) / 0,659 (0,008) | 8 a 10 |
 
   No M3, a correção 3c venceu em todas as sementes. O M3 empata com o especialista de cada fonte. Muitas quedas da Spot e um dia sem L4 disponível (5/11); o `--retomar` e o `log.txt` evitaram perda de treino.
+- **Passos 6.3 e 6.4 (7/11), limiar e temperatura:** sensibilidade 0,90 na validação da fonte em todos os 15 modelos. FPR no limiar: M1 0,58 a 0,63; M2 0,33 a 0,37; M3 (conjunta) 0,36 a 0,42. Temperatura de 1,08 a 1,69 (modelos um pouco confiantes demais). ECE depois da temperatura às vezes melhora, às vezes piora (a temperatura minimiza a log-verossimilhança, não o ECE). No M3, o limiar conjunto dá sensibilidade de cerca de 0,76 no Plus e 0,996 no RSNA: ver F6 › M3 › Limiar por fonte.
+- **Créditos (7/11):** o Redivis concedeu 500 créditos; saldo 518.
 - **M3 implementado (3/11):** época balanceada, parada pela média das AUPRCs das fontes e correções 3a e 3c com escolha pela menor ECE médio (decisões F6 › M3). O caminho do M1 e do M2 ficou idêntico: um treino curto na CPU deu predições iguais bit a bit antes e depois da mudança.
 
 ---
