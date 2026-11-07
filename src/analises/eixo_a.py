@@ -59,8 +59,9 @@ def regressao(g: pd.DataFrame, medida: str, erro: str) -> dict:
     x.insert(0, "const", 1.0)
     coef, eps = logistica_agrupada(x.to_numpy(float), d[erro].to_numpy(float), d["id_paciente"].to_numpy())
     b, ep = float(coef[1]), float(eps[1])
-    if not np.isfinite(ep):
-        raise RuntimeError("erro-padrão não finito (separação ou colinearidade)")
+    if not np.isfinite(ep) or abs(b) > 10:
+        raise RuntimeError(f"ajuste instável (coeficiente {b:.2f}, erro-padrão {ep}): separação ou poucos eventos "
+                           f"({int(d[erro].sum())} erros)")
     return {"n_linhas": int(len(d)), "eventos": int(d[erro].sum()), "or_1dp": float(np.exp(b)),
             "ic_inf": float(np.exp(b - 1.96 * ep)), "ic_sup": float(np.exp(b + 1.96 * ep)),
             "p": p_normal(b, ep), "covariaveis": ",".join(c for c in x.columns if c not in ("const", "medida_z"))}
@@ -147,10 +148,13 @@ def main(argv=None) -> int:
     for _, r in prim.iterrows():
         if pd.notna(r.get("or_1dp")):
             print(f"  {r['modelo']} × {r['fonte']:13s} | {r['medida']:16s} | {r['erro'].upper()} | OR {r['or_1dp']:.2f} "
-                  f"[{r['ic_inf']:.2f}; {r['ic_sup']:.2f}] | eventos {r['eventos']:5d} | p aj. {r['p_ajustado']:.3g}"
+                  f"[{r['ic_inf']:.2f}; {r['ic_sup']:.2f}] | eventos {int(r['eventos']):5d} | p aj. {r['p_ajustado']:.3g}"
                   + (f" | {r['ressalva']}" if r["ressalva"] else ""))
         else:
-            print(f"  {r['modelo']} × {r['fonte']} | {r['medida']} | {r['erro']} | FALHA: {r.get('falha')}")
+            print(f"  {r['modelo']} × {r['fonte']:13s} | {r['medida']:16s} | {r['erro'].upper()} | FALHA: {r.get('falha')}")
+    if falhas:
+        for _, r in regs[regs["falha"].notna() & (regs["familia"] == "secundaria")].iterrows():
+            print(f"  (secundária) {r['modelo']} × {r['fonte']} | {r['medida']} | {r['erro'].upper()} | FALHA: {r['falha']}")
     print(f"Calibração por faixa: {len(cal)} linhas")
     print(f"RESULTADO: {'OK' if not falhas else 'OK com falhas registradas'} (salvo em {saida}/eixo_a_*.csv)")
     return 0

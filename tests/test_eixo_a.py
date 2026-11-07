@@ -51,3 +51,11 @@ def test_estatistica_confere_com_statsmodels():
     p = rng.random(30) ** 3
     assert np.allclose(holm(p), multipletests(p, method="holm")[1])
     assert np.allclose(benjamini_hochberg(p), multipletests(p, method="fdr_bh")[1])
+
+
+def test_logistica_com_separacao_nao_estoura():
+    from src.analises.estatistica import logistica_agrupada
+    x = np.column_stack([np.ones(200), np.r_[np.zeros(100), np.ones(100)]])
+    y = np.r_[np.zeros(100), np.ones(100)]                             # separação perfeita
+    b, ep = logistica_agrupada(x, y, np.arange(200))
+    assert np.all(np.isfinite(b))                                       # sem overflow; o eixo A marca como falha
