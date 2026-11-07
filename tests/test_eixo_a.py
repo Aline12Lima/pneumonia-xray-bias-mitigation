@@ -59,3 +59,20 @@ def test_logistica_com_separacao_nao_estoura():
     y = np.r_[np.zeros(100), np.ones(100)]                             # separação perfeita
     b, ep = logistica_agrupada(x, y, np.arange(200))
     assert np.all(np.isfinite(b))                                       # sem overflow; o eixo A marca como falha
+
+
+def test_poucos_eventos_vira_falha_com_p_1(tmp_path):
+    rng = np.random.default_rng(5)
+    n = 600
+    img = pd.DataFrame({"id_imagem": [f"i{i}" for i in range(n)], "id_paciente": [f"p{i}" for i in range(n)],
+                        "rotulo": (rng.random(n) < 0.05).astype(int), "posicao": rng.choice(["AP", "PA"], n),
+                        "sexo": rng.choice(["M", "F"], n), "idade": rng.integers(18, 90, n), "fabricante": None})
+    for m in PRIMARIAS + SECUNDARIAS:
+        img[m] = rng.normal(0, 1, n)
+    os.makedirs(tmp_path / "M2_s0")
+    json.dump({"limiar": {"limiar_logit": -5.0}}, open(tmp_path / "M2_s0" / "pos_treino.json", "w"))
+    z = 3.0 * img["rotulo"] + rng.normal(0, 1, n)                       # quase nenhum FN
+    tab = img.assign(id_execucao="M2_s0", modelo="M2", semente=0, fonte="rsna", logit=z)
+    regs, _ = rodar(tab, str(tmp_path))
+    fn = regs[regs["erro"] == "fn"]
+    assert fn["falha"].str.contains("poucos eventos").all() and (fn["p_ajustado"] == 1).all()

@@ -7,6 +7,8 @@ Para cada par modelo × base e cada medida de qualidade:
   mesma regressão e erro-padrão agrupado por paciente; efeito em razão de chances por 1 DP;
 - família primária (§9, família 1): brilho, contraste, saturação e enquadramento × FN e FP × pares,
   com Holm (α = 0,05); medidas secundárias com Benjamini-Hochberg;
+- regressão não estimável (menos de 10 eventos por parâmetro, ou erro-padrão do log-OR acima de 2,5,
+  ou coeficiente acima de 10 em módulo) é registrada como falha e entra na correção com p = 1;
 - brilho: lido principalmente no modelo de FP; no de FN, marcado com a ressalva de que pode refletir
   a extensão da opacidade (§8.3);
 - ECE e inclinação de calibração por faixa da medida (Plus: 2 faixas; RSNA e PadChest: 3), média
@@ -30,6 +32,8 @@ from src.qualidade.medidas import PRIMARIAS, SECUNDARIAS
 
 FAIXAS = {"chexpert_plus": 2, "rsna": 3, "padchest": 3}
 MIN_FABRICANTE = 50                                       # fabricantes com menos imagens viram "outros"
+EPV_MIN = 10                                              # eventos por parâmetro (F6 › Eixo A › Regressões não estimáveis)
+EP_MAX = 2.5                                              # erro-padrão do log-OR acima disso: IC do OR mais largo que e^±5
 
 
 def _limiares(execucoes, treinos: str) -> dict:
@@ -59,9 +63,12 @@ def regressao(g: pd.DataFrame, medida: str, erro: str) -> dict:
     x.insert(0, "const", 1.0)
     coef, eps = logistica_agrupada(x.to_numpy(float), d[erro].to_numpy(float), d["id_paciente"].to_numpy())
     b, ep = float(coef[1]), float(eps[1])
-    if not np.isfinite(ep) or abs(b) > 10:
-        raise RuntimeError(f"ajuste instável (coeficiente {b:.2f}, erro-padrão {ep}): separação ou poucos eventos "
-                           f"({int(d[erro].sum())} erros)")
+    # F6 › Eixo A › Regressões não estimáveis (regra fixada no ensaio geral, antes do teste)
+    eventos, params = int(min(d[erro].sum(), len(d) - d[erro].sum())), x.shape[1]
+    if eventos < EPV_MIN * params:
+        raise RuntimeError(f"poucos eventos: {eventos} para {params} parâmetros (mínimo {EPV_MIN} por parâmetro)")
+    if not np.isfinite(ep) or abs(b) > 10 or ep > EP_MAX:
+        raise RuntimeError(f"ajuste instável (coeficiente {b:.2f}, erro-padrão {ep:.2f}): separação na medida")
     return {"n_linhas": int(len(d)), "eventos": int(d[erro].sum()), "or_1dp": float(np.exp(b)),
             "ic_inf": float(np.exp(b - 1.96 * ep)), "ic_sup": float(np.exp(b + 1.96 * ep)),
             "p": p_normal(b, ep), "covariaveis": ",".join(c for c in x.columns if c not in ("const", "medida_z"))}
@@ -119,10 +126,14 @@ def rodar(tab: pd.DataFrame, treinos: str) -> tuple[pd.DataFrame, pd.DataFrame]:
                 cal.append({"modelo": mod, "fonte": fonte, "medida": m, **c})
     regs = pd.DataFrame(regs)
     regs["p_ajustado"] = np.nan
+    # não estimáveis entram na correção com p = 1: o tamanho da família pré-registrada não muda
+    if "p" not in regs:
+        regs["p"] = np.nan
+    p_correcao = regs["p"].fillna(1.0)
     for fam, metodo in (("primaria", holm), ("secundaria", benjamini_hochberg)):
-        sel = (regs["familia"] == fam) & regs["p"].notna()
+        sel = regs["familia"] == fam
         if sel.any():
-            regs.loc[sel, "p_ajustado"] = metodo(regs.loc[sel, "p"].to_numpy())
+            regs.loc[sel, "p_ajustado"] = metodo(p_correcao[sel].to_numpy())
     regs["significativo"] = regs["p_ajustado"] < 0.05
     return regs, pd.DataFrame(cal)
 
