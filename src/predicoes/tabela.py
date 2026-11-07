@@ -11,7 +11,8 @@ Valida contra ``configs/schema_predicoes.yaml`` (``src/predicoes/schema.py``) e 
 no repositório entra só o resumo da validação.
 
 ``logit`` = logit **com** a correção de prior; ``probabilidade`` = sigmoide desse logit;
-``probabilidade_temperatura`` fica vazia até a F6 (passo 6.4).
+``probabilidade_temperatura`` = sigmoide(logit / T), com T de ``pos_treino.json`` (passo 6.4); vazia se
+a temperatura ainda não foi ajustada.
 
 Uso (notebook "treino", sem GPU):
     python -m src.predicoes.tabela --execucao M1_s0_lr0.0001
@@ -31,6 +32,14 @@ TREINOS = "/out/treinos"
 DADOS = "/out/dados"
 FONTE = {"plus": "chexpert_plus", "rsna": "rsna"}
 NOME = "tabela_predicoes_validacao.csv"
+
+
+def _com_temperatura(pasta: str, z: pd.Series):
+    arq = os.path.join(pasta, "pos_treino.json")
+    if not os.path.exists(arq):
+        return np.nan
+    T = json.load(open(arq, encoding="utf-8"))["temperatura"]
+    return 1 / (1 + np.exp(-z / T))
 
 
 def montar(pasta: str, dados: str = DADOS) -> pd.DataFrame:
@@ -59,7 +68,7 @@ def montar(pasta: str, dados: str = DADOS) -> pd.DataFrame:
         "modelo": res["modelo"], "semente": int(res["semente"]), "id_execucao": os.path.basename(pasta.rstrip("/")),
         "degradacao": "nenhuma", "nivel": "0", "rotulo": df["rotulo"].astype(int),
         "logit": df["logit_corrigido"].astype(float), "probabilidade": df["prob"].astype(float),
-        "probabilidade_temperatura": np.nan, "posicao": df["posicao"].astype(str),
+        "probabilidade_temperatura": _com_temperatura(pasta, df["logit_corrigido"].astype(float)), "posicao": df["posicao"].astype(str),
         "idade": pd.to_numeric(df["idade"]).round().astype("Int64"), "sexo": df["sexo"].astype(str),
         "fabricante": df["fabricante"].astype("object").where(df["fabricante"].notna(), None),
     })

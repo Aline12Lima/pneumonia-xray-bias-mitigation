@@ -145,6 +145,16 @@ Os documentos produzidos em vários chats foram reunidos numa só pasta (`docs/`
 ## 10. Modelos (F6, a partir de 3/11/2026)
 
 - **Passo 6.1, busca de taxa:** M1 pelos pilotos da F5 (1e-4); M2 em 3/11, semente 0: 1e-4 → AUROC 0,874, AUPRC 0,643 (prevalência 0,199), melhor época 2 de 8; 3e-4 → AUROC 0,872, AUPRC 0,648, melhor época 5 de 11. Escolhida 3e-4 (F6 › M2 › Taxa). No RSNA a correção de prior é zero (sem subamostragem), como esperado. A tela do notebook parou de atualizar durante os dois treinos; eles terminaram normalmente e a retomada só refez a avaliação final. A partir daqui, cada treino grava também um `log.txt` na pasta da execução.
+- **Passo 6.1, M3 (3/11):** 1e-4 → média das fontes AUROC 0,826, AUPRC 0,377 (Plus 0,782 / 0,099; RSNA 0,869 / 0,655), melhor época 3 de 9; 3e-4 → 0,827 / 0,375, melhor época 9 de 15. Escolhida 1e-4. Correção principal pela regra: 3c nas duas (ECE médio 0,016 e 0,027, contra 0,053 e 0,052 da 3a).
+- **Passo 6.2 (4 a 7/11), sementes 0 a 4 dos três modelos, todas na L4:**
+
+| Modelo (taxa) | AUROC, média (DP) entre as 5 sementes | AUPRC, média (DP) | Épocas até a parada |
+|---|---|---|---|
+| M1 (1e-4), validação do Plus | 0,785 (0,010) | 0,112 (0,003) | 8 a 13 |
+| M2 (3e-4), validação do RSNA | 0,874 (0,003) | 0,648 (0,010) | 8 a 13 |
+| M3 (1e-4), Plus / RSNA | 0,784 (0,010) / 0,872 (0,007) | 0,099 (0,008) / 0,659 (0,008) | 8 a 10 |
+
+  No M3, a correção 3c venceu em todas as sementes. O M3 empata com o especialista de cada fonte. Muitas quedas da Spot e um dia sem L4 disponível (5/11); o `--retomar` e o `log.txt` evitaram perda de treino.
 - **M3 implementado (3/11):** época balanceada, parada pela média das AUPRCs das fontes e correções 3a e 3c com escolha pela menor ECE médio (decisões F6 › M3). O caminho do M1 e do M2 ficou idêntico: um treino curto na CPU deu predições iguais bit a bit antes e depois da mudança.
 
 ---
