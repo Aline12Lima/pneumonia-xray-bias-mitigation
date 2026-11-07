@@ -6,6 +6,8 @@ Para cada modelo (M1, M2, M3) e semente (0 a 4), na taxa escolhida (F6 › M1/M2
 - **Limiar (6.3):** o maior limiar com sensibilidade >= 0,90 na validação da fonte (M3: validação
   conjunta, Plus + RSNA). Fica salvo em unidades de logit corrigido, e é reaplicado sem mudança no
   teste interno e no externo. A temperatura não muda a ordem das imagens, então não muda o limiar.
+- **Limiar por fonte (só M3, análise de sensibilidade; F6 › M3 › Limiar por fonte):** o mesmo critério
+  na validação de cada fonte separadamente; o principal continua sendo o limiar conjunto.
 - **Temperatura (6.4):** um escalar T > 0 que minimiza a log-verossimilhança de sigmoide(logit / T) na
   validação da fonte (M3: validação conjunta). ECE bruto (principal) e ECE após temperatura
   (secundário), ambos com 15 faixas de igual massa.
@@ -72,12 +74,14 @@ def processar(pasta: str) -> dict:
            "ece_bruto": ece_igual_massa(y, sig(z)), "ece_temperatura": ece_igual_massa(y, sig(z / T))}
     if "fonte" in pred.columns and pred["fonte"].nunique() > 1:              # M3: o mesmo limiar e T por fonte
         out["por_fonte"] = {}
+        out["limiar_por_fonte"] = {}        # sensibilidade (F6 › M3 › Limiar por fonte): 0,90 em cada fonte
         for f, g in pred.groupby("fonte"):
             yf, zf = g["rotulo"].to_numpy().astype(int), g["logit_corrigido"].to_numpy().astype(float)
             pf = zf >= lim["limiar_logit"]
             out["por_fonte"][f] = {"sensibilidade": float(pf[yf == 1].mean()), "fpr": float(pf[yf == 0].mean()),
                                    "ece_bruto": ece_igual_massa(yf, sig(zf)),
                                    "ece_temperatura": ece_igual_massa(yf, sig(zf / T))}
+            out["limiar_por_fonte"][f] = limiar_sensibilidade(yf, zf)
     json.dump(out, open(os.path.join(pasta, "pos_treino.json"), "w", encoding="utf-8"), indent=2, ensure_ascii=False)
     return out
 

@@ -50,6 +50,12 @@ def montar(pasta: str, dados: str = DADOS) -> pd.DataFrame:
     pred = pd.read_csv(os.path.join(pasta, "predicoes_validacao.csv"), dtype={"id": str, "paciente": str})
     if "fonte" not in pred.columns:                         # execuções anteriores ao M3 (uma base só)
         pred["fonte"] = bases[0]
+    return para_schema(pred, res, pasta, bases, dados)
+
+
+def para_schema(pred: pd.DataFrame, res: dict, pasta: str, bases: list[str], dados: str = DADOS,
+                particao: str = "validacao") -> pd.DataFrame:
+    """Predições (id, paciente, fonte, rotulo, logit_corrigido, prob) → tabela no formato do schema."""
     covs = []
     for b in bases:
         cov_arq = os.path.join(dados, b, "covariaveis.csv")
@@ -60,15 +66,16 @@ def montar(pasta: str, dados: str = DADOS) -> pd.DataFrame:
     cov = pd.concat(covs, ignore_index=True)
     df = pred.merge(cov, on=["id", "fonte"], how="left")
     if df["posicao"].isna().any():
-        raise RuntimeError(f"{int(df['posicao'].isna().sum())} imagens da validação sem covariáveis")
+        raise RuntimeError(f"{int(df['posicao'].isna().sum())} imagens sem covariáveis")
     medidas = [c for c in cov.columns if c.startswith("q_")]
     t = pd.DataFrame({
         "id_imagem": df["id"].astype(str), "id_paciente": df["paciente"].astype(str),
-        "id_estudo": df["id_estudo"].astype(str), "fonte": df["fonte"].map(FONTE), "particao": "validacao",
+        "id_estudo": df["id_estudo"].astype(str), "fonte": df["fonte"].map(FONTE), "particao": particao,
         "modelo": res["modelo"], "semente": int(res["semente"]), "id_execucao": os.path.basename(pasta.rstrip("/")),
         "degradacao": "nenhuma", "nivel": "0", "rotulo": df["rotulo"].astype(int),
         "logit": df["logit_corrigido"].astype(float), "probabilidade": df["prob"].astype(float),
-        "probabilidade_temperatura": _com_temperatura(pasta, df["logit_corrigido"].astype(float)), "posicao": df["posicao"].astype(str),
+        "probabilidade_temperatura": _com_temperatura(pasta, df["logit_corrigido"].astype(float)),
+        "posicao": df["posicao"].astype(str),
         "idade": pd.to_numeric(df["idade"]).round().astype("Int64"), "sexo": df["sexo"].astype(str),
         "fabricante": df["fabricante"].astype("object").where(df["fabricante"].notna(), None),
     })
