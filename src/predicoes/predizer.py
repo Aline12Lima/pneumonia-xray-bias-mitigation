@@ -94,7 +94,7 @@ def main(argv=None) -> int:
             txt = " | ".join(f"{f}: prob média {g['prob'].mean():.4f}" for f, g in pred.groupby("fonte"))
             print(f"{m} s{s}: {len(t)} linhas | maior diferença para o treino {dif:.2e} | {txt}"
                   + (f" | ERROS: {erros}" if erros else ""), flush=True)
-            if erros or dif > 1e-3:
+            if erros or dif > 0.02:                       # resolução do fp16 na GPU (2^-6 em logits ~10)
                 problemas.append(os.path.basename(pasta))
     tab = pd.concat(tabelas, ignore_index=True)
     tab.to_csv(os.path.join(SAIDA, "tabela_validacao.csv"), index=False)
