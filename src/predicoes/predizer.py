@@ -34,7 +34,7 @@ from src.predicoes.schema import validar
 from src.predicoes.tabela import para_schema
 from src.treino.carregador import ImagensCache, ler_particao
 from src.treino.modelo import criar_densenet121
-from src.treino.treinar import _logits, correcoes_m3, prevalencias
+from src.treino.treinar import RAIZ_DADOS, _logits, correcoes_m3, prevalencias
 
 SAIDA = "/out/predicoes"
 BASES = ["plus", "rsna"]
@@ -73,7 +73,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--workers", type=int, default=min(4, os.cpu_count() or 1))
     a = ap.parse_args(argv)
-    imagens = pd.concat([ler_particao(b, "validacao") for b in BASES], ignore_index=True)
+    imagens = pd.concat([ler_particao(b, "validacao", raiz=RAIZ_DADOS) for b in BASES], ignore_index=True)
     os.makedirs(os.path.join(SAIDA, "validacao"), exist_ok=True)
     tabelas, problemas = [], []
     for m in TAXA:
