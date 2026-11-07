@@ -20,13 +20,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import warnings
 
 import numpy as np
 import pandas as pd
-import statsmodels.api as sm
-from statsmodels.stats.multitest import multipletests
-
+from src.analises.estatistica import benjamini_hochberg, holm, logistica_agrupada, p_normal
 from src.analises.metricas import calibracao, ece
 from src.predicoes.pos_treino import TREINOS
 from src.qualidade.medidas import PRIMARIAS, SECUNDARIAS
@@ -59,16 +56,14 @@ def regressao(g: pd.DataFrame, medida: str, erro: str) -> dict:
     d = g.dropna(subset=[f"{medida}_z", "idade"])
     x = _covariaveis(d)
     x.insert(0, "medida_z", d[f"{medida}_z"].astype(float))
-    x = sm.add_constant(x, has_constant="add")
-    grupos = pd.factorize(d["id_paciente"])[0]
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        fit = sm.GLM(d[erro].astype(float), x, family=sm.families.Binomial()).fit(
-            cov_type="cluster", cov_kwds={"groups": grupos})
-    b, ep = float(fit.params["medida_z"]), float(fit.bse["medida_z"])
+    x.insert(0, "const", 1.0)
+    coef, eps = logistica_agrupada(x.to_numpy(float), d[erro].to_numpy(float), d["id_paciente"].to_numpy())
+    b, ep = float(coef[1]), float(eps[1])
+    if not np.isfinite(ep):
+        raise RuntimeError("erro-padrão não finito (separação ou colinearidade)")
     return {"n_linhas": int(len(d)), "eventos": int(d[erro].sum()), "or_1dp": float(np.exp(b)),
             "ic_inf": float(np.exp(b - 1.96 * ep)), "ic_sup": float(np.exp(b + 1.96 * ep)),
-            "p": float(fit.pvalues["medida_z"]), "covariaveis": ",".join(c for c in x.columns if c not in ("const", "medida_z"))}
+            "p": p_normal(b, ep), "covariaveis": ",".join(c for c in x.columns if c not in ("const", "medida_z"))}
 
 
 def calibracao_por_faixa(g: pd.DataFrame, medida: str, faixas: int) -> list[dict]:
@@ -123,10 +118,10 @@ def rodar(tab: pd.DataFrame, treinos: str) -> tuple[pd.DataFrame, pd.DataFrame]:
                 cal.append({"modelo": mod, "fonte": fonte, "medida": m, **c})
     regs = pd.DataFrame(regs)
     regs["p_ajustado"] = np.nan
-    for fam, metodo in (("primaria", "holm"), ("secundaria", "fdr_bh")):
+    for fam, metodo in (("primaria", holm), ("secundaria", benjamini_hochberg)):
         sel = (regs["familia"] == fam) & regs["p"].notna()
         if sel.any():
-            regs.loc[sel, "p_ajustado"] = multipletests(regs.loc[sel, "p"], alpha=0.05, method=metodo)[1]
+            regs.loc[sel, "p_ajustado"] = metodo(regs.loc[sel, "p"].to_numpy())
     regs["significativo"] = regs["p_ajustado"] < 0.05
     return regs, pd.DataFrame(cal)
 

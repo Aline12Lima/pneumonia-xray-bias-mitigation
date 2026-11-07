@@ -34,3 +34,20 @@ def test_eixo_a_detecta_efeito_do_brilho_no_fp(tmp_path):
     assert fn["ressalva"] and fn["or_1dp"] < 1                         # brilho alto → menos FN
     assert "fab_GE" in fp["covariaveis"]
     assert set(cal["faixa"]) == {1, 2}                                  # Plus: 2 faixas
+
+
+def test_estatistica_confere_com_statsmodels():
+    sm = __import__("pytest").importorskip("statsmodels.api")
+    from statsmodels.stats.multitest import multipletests
+    from src.analises.estatistica import benjamini_hochberg, holm, logistica_agrupada
+    rng = np.random.default_rng(3)
+    n = 2000
+    x = np.column_stack([np.ones(n), rng.normal(size=n), rng.integers(0, 2, n)])
+    y = (rng.random(n) < 1 / (1 + np.exp(-(x @ [-1, 0.5, 0.3])))).astype(float)
+    g = rng.integers(0, 600, n)
+    b, ep = logistica_agrupada(x, y, g)
+    fit = sm.GLM(y, x, family=sm.families.Binomial()).fit(cov_type="cluster", cov_kwds={"groups": g})
+    assert np.allclose(b, fit.params, atol=1e-6) and np.allclose(ep, fit.bse, rtol=1e-4)
+    p = rng.random(30) ** 3
+    assert np.allclose(holm(p), multipletests(p, method="holm")[1])
+    assert np.allclose(benjamini_hochberg(p), multipletests(p, method="fdr_bh")[1])
