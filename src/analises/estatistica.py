@@ -17,17 +17,31 @@ def logistica_agrupada(x: np.ndarray, y: np.ndarray, grupos: np.ndarray, iters: 
     Retorna (coeficientes, erros-padrão)."""
     n, k = x.shape
     beta = np.zeros(k)
-    for _ in range(iters):
-        mu = 1 / (1 + np.exp(-(x @ beta)))
+    sig = lambda e: 1 / (1 + np.exp(-np.clip(e, -35, 35)))                   # noqa: E731
+
+    def logv(b):
+        e = np.clip(x @ b, -35, 35)
+        return float(np.sum(y * e - np.logaddexp(0, e)))
+
+    atual = logv(beta)
+    for _ in range(iters):                               # Newton com passo reduzido à metade se piorar
+        mu = sig(x @ beta)
         w = np.clip(mu * (1 - mu), 1e-12, None)
         h = x.T @ (x * w[:, None])
-        passo = np.linalg.solve(h, x.T @ (y - mu))
-        beta += passo
-        if np.max(np.abs(passo)) < 1e-10:
+        passo = np.linalg.solve(h + 1e-10 * np.eye(k), x.T @ (y - mu))
+        t = 1.0
+        while t > 1e-8:
+            novo = logv(beta + t * passo)
+            if novo >= atual - 1e-12:
+                break
+            t /= 2
+        beta = beta + t * passo
+        mudou, atual = abs(novo - atual), novo
+        if np.max(np.abs(t * passo)) < 1e-10 or mudou < 1e-12:
             break
-    mu = 1 / (1 + np.exp(-(x @ beta)))
+    mu = sig(x @ beta)
     w = mu * (1 - mu)
-    pao = np.linalg.inv(x.T @ (x * w[:, None]))
+    pao = np.linalg.pinv(x.T @ (x * w[:, None]))
     escores = x * (y - mu)[:, None]
     _, g = np.unique(grupos, return_inverse=True)
     soma = np.zeros((g.max() + 1, k))
@@ -35,7 +49,8 @@ def logistica_agrupada(x: np.ndarray, y: np.ndarray, grupos: np.ndarray, iters: 
     G = soma.shape[0]
     meio = soma.T @ soma * (G / (G - 1)) * ((n - 1) / (n - k))
     cov = pao @ meio @ pao
-    return beta, np.sqrt(np.diag(cov))
+    d = np.diag(cov)
+    return beta, np.sqrt(np.where(d > 0, d, np.nan))
 
 
 def p_normal(b: float, ep: float) -> float:
