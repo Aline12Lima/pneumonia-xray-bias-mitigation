@@ -9,6 +9,8 @@ Por modelo, degradação e lado (gama e brilho: escurecer e clarear; as outras: 
 - tendência: FNR e FPR por regressão logística do erro de cada imagem sobre o nível, sementes juntas,
   erro-padrão agrupado por paciente; AUROC e ECE pela inclinação da curva (mínimos quadrados sobre os
   níveis), com bootstrap pareado por paciente (p bilateral); Mann-Kendall só descritivo;
+- FNR e FPR com menos de 10 eventos por parâmetro ou ajuste instável: tendência não estimável, sem p
+  (mesma regra do eixo A);
 - controle negativo (p25/p75): |Δ| abaixo da margem da métrica;
 - família 2 (Holm, na consolidação): tendência do ΔAUROC em gama, brilho e contraste; para gama e brilho,
   o menor p dos dois lados × 2 (Bonferroni dentro da degradação), mantendo 27 testes.
@@ -27,6 +29,7 @@ import pandas as pd
 from scipy.stats import kendalltau
 from sklearn.metrics import roc_auc_score
 
+from src.analises.eixo_a import EP_MAX, EPV_MIN
 from src.analises.eixo_c import ece_ponderado, margem
 from src.analises.estatistica import logistica_agrupada, p_normal
 from src.analises.metricas import indices_bootstrap
@@ -93,9 +96,21 @@ def curva(g: pd.DataFrame, niveis: list[str], limiares: dict, prevalencia: float
                 erro = (z < limiares[ex]) if classe == 1 else (z >= limiares[ex])
                 xs.append(np.full(sel.sum(), a, float)); ys.append(erro.astype(float)); gs.append(pac[sel])
         x = np.column_stack([np.ones(sum(len(v) for v in xs)), np.concatenate(xs)])
-        b, ep = logistica_agrupada(x, np.concatenate(ys), np.concatenate(gs))
+        yy = np.concatenate(ys)
+        eventos = int(min(yy.sum(), len(yy) - yy.sum()))
+        res[f"eventos_{k}"] = eventos
+        # mesma regra do eixo A (F6 › Eixo A › Regressões não estimáveis)
+        if eventos < EPV_MIN * x.shape[1]:
+            res[f"or_nivel_{k}"], res[f"p_tendencia_{k}"] = np.nan, np.nan
+            res[f"nao_estimavel_{k}"] = f"poucos eventos ({eventos})"
+            continue
+        b, ep = logistica_agrupada(x, yy, np.concatenate(gs))
+        if not np.isfinite(ep[1]) or ep[1] > EP_MAX or abs(b[1]) > 10:
+            res[f"or_nivel_{k}"], res[f"p_tendencia_{k}"] = np.nan, np.nan
+            res[f"nao_estimavel_{k}"] = f"ajuste instável (coef {b[1]:.2f}, EP {ep[1]:.2f})"
+            continue
         res[f"or_nivel_{k}"] = float(np.exp(b[1]))
-        res[f"p_tendencia_{k}"] = p_normal(b[1], ep[1]) if np.isfinite(ep[1]) and ep[1] > 0 else np.nan
+        res[f"p_tendencia_{k}"] = p_normal(b[1], ep[1])
     for j, k in enumerate(("auroc", "fnr", "fpr", "ece")):
         res[f"mann_kendall_{k}"] = float(kendalltau(idx_nivel, pt[:, j]).pvalue) if len(niveis) > 2 else np.nan
     return res
@@ -129,7 +144,10 @@ def rodar(tab: pd.DataFrame, modelos: str, prevalencia: float, n_boot: int) -> p
                     for chave in (f"p_tendencia_{k}", f"mann_kendall_{k}"):
                         linha[chave] = c.get(chave, np.nan)
                 linha.update({"inclinacao_auroc": c["inclinacao_auroc"], "inclinacao_ece": c["inclinacao_ece"],
-                              "or_nivel_fnr": c["or_nivel_fnr"], "or_nivel_fpr": c["or_nivel_fpr"]})
+                              "or_nivel_fnr": c["or_nivel_fnr"], "or_nivel_fpr": c["or_nivel_fpr"],
+                              "eventos_fnr": c["eventos_fnr"], "eventos_fpr": c["eventos_fpr"],
+                              "nao_estimavel": "; ".join(f"{k}: {c[f'nao_estimavel_{k}']}" for k in ("fnr", "fpr")
+                                                         if f"nao_estimavel_{k}" in c)})
                 linha["curva"] = json.dumps({n: [round(float(v), 5) for v in c["pontos"][a]] for a, n in enumerate(niveis)})
                 linhas.append(linha)
     res = pd.DataFrame(linhas)
@@ -160,7 +178,8 @@ def main(argv=None) -> int:
         ok = "ok" if r["controle_auroc_ok"] and r["controle_fnr_ok"] and r["controle_fpr_ok"] else "FORA"
         print(f"  {r['modelo']} {r['degradacao']:9s} {r['lado']:5s} | ΔAUROC máx {r['delta_auroc_max']:+.3f} "
               f"(p {r['p_tendencia_auroc']:.3g}) | ΔFNR {r['delta_fnr_max']:+.3f} (p {r['p_tendencia_fnr']:.3g}) | "
-              f"ΔFPR {r['delta_fpr_max']:+.3f} (p {r['p_tendencia_fpr']:.3g}) | ΔECE {r['delta_ece_max']:+.4f} | controle {ok}")
+              f"ΔFPR {r['delta_fpr_max']:+.3f} (p {r['p_tendencia_fpr']:.3g}) | ΔECE {r['delta_ece_max']:+.4f} | controle {ok}"
+              + (f" | não estimável: {r['nao_estimavel']}" if r["nao_estimavel"] else ""))
     print(f"RESULTADO: OK (salvo em {destino})")
     return 0
 

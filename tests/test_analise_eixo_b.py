@@ -37,3 +37,20 @@ def test_eixo_b_detecta_tendencia(tmp_path):
     assert c["delta_auroc_max"] < -0.05 and c["p_tendencia_auroc"] < 0.05 and c["familia"] == "primaria"
     assert abs(r["delta_auroc_max"]) < 0.02 and r["familia"] == "secundaria" and r["controle_auroc_ok"]
     assert c["p_familia2"] == c["p_tendencia_auroc"]                      # um lado só: sem multiplicar
+
+
+def test_poucos_erros_nao_estimavel(tmp_path):
+    rng = np.random.default_rng(1)
+    n = 300
+    y = (np.arange(n) < 60).astype(int)
+    os.makedirs(tmp_path / "M3_s0")
+    json.dump({"limiar": {"limiar_logit": -6.0}}, open(tmp_path / "M3_s0" / "pos_treino.json", "w"))
+    linhas = []
+    for deg, nv in [("nenhuma", "0"), ("brilho", "p75"), ("brilho", "p90"), ("brilho", "p95")]:
+        z = 5.0 * y - 2 + rng.normal(0, 1, n)                              # quase nenhum FN no limiar −6
+        linhas.append(pd.DataFrame({"id_imagem": [f"i{i}" for i in range(n)], "id_paciente": [f"p{i}" for i in range(n)],
+                                    "fonte": "rsna", "modelo": "M3", "semente": 0, "id_execucao": "M3_s0",
+                                    "degradacao": deg, "nivel": nv, "rotulo": y, "logit": z}))
+    res = rodar(pd.concat(linhas, ignore_index=True), str(tmp_path), 0.2, n_boot=10)
+    r = res.iloc[0]
+    assert np.isnan(r["p_tendencia_fnr"]) and "fnr: poucos eventos" in r["nao_estimavel"]
