@@ -50,7 +50,7 @@ BASES = {
 # ------------------------------------------------------------------ uma imagem
 def nome_cache(ident: str) -> str:
     """Nome de arquivo seguro para o cache (a chave do Plus tem barras)."""
-    return str(ident).replace("/", "__").removesuffix(".dcm") + ".png"
+    return str(ident).replace("/", "__").removesuffix(".dcm").removesuffix(".png") + ".png"
 
 
 def _num(v) -> float:
