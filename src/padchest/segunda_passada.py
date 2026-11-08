@@ -21,6 +21,7 @@ processado, o próximo já está sendo baixado.
 
 Uso (no notebook do workflow ``auditoria_padchest``):
     python -m src.padchest.segunda_passada            # processa o que falta
+    python -m src.padchest.segunda_passada --com-cache   # idem, gravando também o cache de 320 px
     python -m src.padchest.segunda_passada --resumo   # compara as duas conversões (lê só o /out)
 """
 from __future__ import annotations
@@ -164,8 +165,19 @@ def baixar_pacote(link: str, n: int) -> str:
     return zipf
 
 
+def gravar_c320(g: np.ndarray, ident: str, cache: str) -> None:
+    """Grava a cópia de 320 px (``src.padchest.cache320.converter``), via arquivo temporário."""
+    from src.cache.hashes import nome_cache
+    from src.padchest.cache320 import converter
+    destino = os.path.join(cache, nome_cache(ident))
+    tmp = destino + ".tmp.png"
+    if not cv2.imwrite(tmp, converter(g)):
+        raise IOError("cache de 320 px não gravou")
+    os.replace(tmp, destino)
+
+
 # ------------------------------------------------------------------ um pacote
-def processar_pacote(n: int, zipf: str, rec: pd.DataFrame, segmentar) -> None:
+def processar_pacote(n: int, zipf: str, rec: pd.DataFrame, segmentar, cache: str | None = None) -> None:
     # parciais em blocos separados: as colunas podem variar (imagem sem janela, imagem que não abriu)
     final, pasta = f"{SAIDA}/medidas_pacote_{n}.csv", f"{SAIDA}/parcial_pacote_{n}"
     os.makedirs(pasta, exist_ok=True)
@@ -191,6 +203,8 @@ def processar_pacote(n: int, zipf: str, rec: pd.DataFrame, segmentar) -> None:
                     raise ValueError("não decodificou")
                 g = g if g.ndim == 2 else g[..., 0]
                 reg.update(medir_imagem(g, linha, segmentar), abriu=True)
+                if cache:                                  # cópia de 320 px, na mesma leitura do zip
+                    gravar_c320(g, linha.ImageID, cache)
             except Exception as e:
                 reg.update(abriu=False, erro=f"{type(e).__name__}: {str(e)[:80]}")
             regs.append(reg)
@@ -207,11 +221,13 @@ def processar_pacote(n: int, zipf: str, rec: pd.DataFrame, segmentar) -> None:
     print(f"Pacote {n}: pronto em {(time.time() - t0) / 60:.1f} min | zip apagado", flush=True)
 
 
-def rodar(link: str, pacotes=PACOTES) -> list[int]:
+def rodar(link: str, pacotes=PACOTES, cache: str | None = None) -> list[int]:
     """Processa os pacotes que faltam, baixando o próximo enquanto mede o atual. Devolve os que falharam."""
     from src.imagem.mascara import segmentar_pulmoes
 
     os.makedirs(SAIDA, exist_ok=True)
+    if cache:
+        os.makedirs(cache, exist_ok=True)
     rec = pd.read_csv(RECORTE)
     faltam = [n for n in pacotes if not os.path.exists(f"{SAIDA}/medidas_pacote_{n}.csv")]
     print(f"Pacotes prontos: {len(pacotes) - len(faltam)} de {len(pacotes)} | faltam {faltam}", flush=True)
@@ -228,7 +244,7 @@ def rodar(link: str, pacotes=PACOTES) -> list[int]:
             futuro = ex.submit(baixar_pacote, link, faltam[k + 1]) if k + 1 < len(faltam) else None
             if zipf:
                 try:
-                    processar_pacote(n, zipf, rec, segmentar_pulmoes)
+                    processar_pacote(n, zipf, rec, segmentar_pulmoes, cache)
                 except Exception as e:
                     print(f"Pacote {n}: FALHOU ({type(e).__name__}: {str(e)[:150]})", flush=True)
                     falhas.append(n)
@@ -278,6 +294,8 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--resumo", action="store_true", help="só compara as duas conversões, lendo o /out")
     ap.add_argument("--pacotes", type=int, nargs="*", default=PACOTES)
+    ap.add_argument("--com-cache", action="store_true",
+                    help="grava também a cópia de 320 px (src.padchest.cache320.CACHE) na mesma leitura")
     a = ap.parse_args(argv)
     if a.resumo:
         resumo()
@@ -286,11 +304,13 @@ def main(argv=None) -> int:
     if not link:
         raise SystemExit("Defina PADCHEST_LINK no notebook (o link não fica no repositório).")
     inicio = time.time()
-    falhas = rodar(link, a.pacotes)
+    from src.padchest.cache320 import CACHE
+    cache = CACHE if a.com_cache else None
+    falhas = rodar(link, a.pacotes, cache)
     if falhas:
         print(f"\nFalharam {falhas}; pausa de 2 min e nova tentativa", flush=True)
         time.sleep(120)
-        falhas = rodar(link, falhas)
+        falhas = rodar(link, falhas, cache)
     prontos = sorted(int(re.search(r"_(\d+)\.csv", f).group(1)) for f in glob.glob(f"{SAIDA}/medidas_pacote_*.csv"))
     print(f"\nFim da sessão: {(time.time() - inicio) / 3600:.1f} h | prontos ({len(prontos)} de 13): {prontos}"
           + (f" | ainda falharam: {falhas}" if falhas else ""))

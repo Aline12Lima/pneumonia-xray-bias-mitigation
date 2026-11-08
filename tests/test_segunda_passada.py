@@ -98,6 +98,24 @@ def test_processar_pacote_com_retomada(tmp_path, monkeypatch):
     assert not zipf.exists() and not os.path.exists(f"{sp.SAIDA}/parcial_pacote_3")
 
 
+def test_processar_pacote_grava_cache_na_mesma_leitura(tmp_path, monkeypatch):
+    from src.padchest.cache320 import converter
+    monkeypatch.setattr(sp, "SAIDA", str(tmp_path / "medidas"))
+    os.makedirs(sp.SAIDA)
+    ids = ["a.png", "b.png"]
+    zipf = tmp_path / "0.zip"
+    with zipfile.ZipFile(zipf, "w") as z:
+        for k, i in enumerate(ids):
+            z.writestr(f"0/{i}", cv2.imencode(".png", _png16(500, 400, k))[1].tobytes())
+    rec = pd.DataFrame({"ImageID": ids, "ImageDir": 0, "WindowCenter_DICOM": "2047",
+                        "WindowWidth_DICOM": "4095", "BitsStored_DICOM": 12})
+    cache = tmp_path / "c320"
+    cache.mkdir()
+    sp.processar_pacote(0, str(zipf), rec, _seg_falso, str(cache))
+    assert sorted(p.name for p in cache.iterdir()) == ids
+    assert np.array_equal(cv2.imread(str(cache / "b.png"), cv2.IMREAD_UNCHANGED), converter(_png16(500, 400, 1)))
+
+
 def test_comparar_conversoes():
     rng = np.random.default_rng(0)
     a = rng.normal(120, 10, 200)
