@@ -44,6 +44,7 @@ GRADE = {
     "brilho": [-60, -40, -25, -10, 10, 25, 40, 60],
 }
 PERCENTIS = {"baixo": [25, 10, 5, 1], "alto": [75, 90, 95, 99]}
+NEUTRO = {"gama": 1.0, "contraste": 1.0, "brilho": 0.0, "desfoque": 0.0, "ruido": 0.0, "resolucao": 1.0}
 MEDIDAS = ["q_brilho", "q_contraste", "q_nitidez", "q_ruido"]
 
 BASES = {
@@ -208,8 +209,11 @@ def ancoragem(df: pd.DataFrame, nat: pd.DataFrame) -> pd.DataFrame:
     for tipo, (medida, lado) in MEDIDA_ALVO.items():
         if not (df["tipo"] == tipo).any():
             continue
-        g = df[df["tipo"] == tipo].groupby("parametro")
         espaco = "orig" if tipo in ESPACIAIS else "320"
+        # a imagem natural é o ponto "sem degradação" da grade (gama 1, contraste 1, brilho 0, desfoque 0,
+        # ruído 0, resolução 1): sem ele, alvos entre a natural e o primeiro passo da grade ficavam de fora
+        nat_pts = df[df["tipo"] == "natural"].assign(tipo=tipo, parametro=NEUTRO[tipo])
+        g = pd.concat([nat_pts, df[df["tipo"] == tipo]]).groupby("parametro")
         med = g[f"{medida}_{espaco}"].median()
         lados = ["baixo", "alto"] if lado == "dois lados" else [lado]
         for l in lados:

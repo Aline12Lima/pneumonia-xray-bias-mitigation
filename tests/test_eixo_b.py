@@ -45,3 +45,15 @@ def test_uma_imagem_gera_todas_as_versoes(tmp_path, monkeypatch):
     for l in linhas:
         assert cv2.imread(l["caminho"], cv2.IMREAD_GRAYSCALE).shape == (320, 320)
     assert np.isfinite([l["valor_medido"] for l in linhas[1:]]).all()
+
+
+def test_ancoragem_inclui_a_imagem_natural():
+    from src.perturbations.piloto import ancoragem
+    linhas = []
+    for i in range(5):
+        linhas.append({"id": i, "tipo": "natural", "parametro": 0.0, "q_nitidez_orig": 300.0})
+        for p, v in ((0.5, 100.0), (1, 50.0)):
+            linhas.append({"id": i, "tipo": "desfoque", "parametro": p, "q_nitidez_orig": v})
+    nat = pd.DataFrame({"q_nitidez": np.linspace(150, 400, 100)})
+    a = ancoragem(pd.DataFrame(linhas), nat)
+    assert a["parametro"].notna().all() and (a["parametro"] < 0.5).all()   # entre a natural e o 1º passo

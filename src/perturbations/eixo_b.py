@@ -130,7 +130,13 @@ def gerar(base: str, particao: str, limite: int | None = None) -> int:
     amostra = sortear(tab, POSITIVOS_ENSAIO)
     amostra.to_csv(os.path.join(pasta, "amostra.csv"), index=False)
     niv, fora = niveis(base)
-    niv.to_csv(os.path.join(pasta, "niveis.csv"), index=False)
+    arq_niv = os.path.join(pasta, "niveis.csv")
+    if os.path.exists(arq_niv) and os.path.exists(os.path.join(pasta, "manifesto.csv")):
+        antigos = pd.read_csv(arq_niv)
+        if not (len(antigos) == len(niv) and np.allclose(antigos["parametro"], niv["parametro"])
+                and (antigos["percentil"].tolist() == niv["percentil"].tolist())):
+            raise RuntimeError(f"os níveis mudaram desde a última geração: apague {pasta} e gere de novo")
+    niv.to_csv(arq_niv, index=False)
     print(f"{base} | {particao}: amostra de {len(amostra)} imagens ({int(amostra['rotulo'].sum())} positivas, "
           f"{amostra['paciente'].nunique()} pacientes) | {len(niv)} níveis | fora da grade: {fora or 'nenhum'}", flush=True)
     man_arq = os.path.join(pasta, "manifesto.csv")
