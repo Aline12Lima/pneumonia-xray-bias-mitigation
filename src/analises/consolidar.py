@@ -11,9 +11,10 @@ Faz:
   espaciais (não estimáveis entram com p = 1);
 - **T3** por par modelo × base, degradação e lado: dose-resposta se (a) pelo menos 2 dos 3 desfechos (FNR,
   FPR, ECE) têm tendência com p ajustado < 0,05 **e** efeito máximo >= margem; (b) o controle negativo
-  (p25/p75) não tem efeito acima da margem em AUROC, FNR e FPR; (c) a direção bate com o eixo A (FN e FP:
-  sinal do efeito da medida sobre o erro no eixo B, convertido pelo lado da degradação, igual ao sinal do
-  log-OR do eixo A, quando os dois são estimáveis).
+  (p25/p75) não tem efeito acima da margem em AUROC, FNR e FPR; (c) a direção bate com o eixo A em pelo
+  menos uma comparação e em todas as feitas. A direção só é comparada onde o eixo A tem efeito (p ajustado
+  < 0,05) e o eixo B tem tendência acima da margem; para gama e brilho, só no FP (§8.3). Sem comparação
+  possível, não há convergência A ↔ B e o T3 sai "não".
 
 Uso (notebook "treino", CPU):
     python -m src.analises.consolidar --particao validacao
@@ -73,20 +74,24 @@ def t3(b: pd.DataFrame, a: pd.DataFrame, prevalencias: dict) -> pd.DataFrame:
             tend[k] = bool(pd.notna(p) and p < 0.05 and abs(r[f"delta_{k}_max"]) >= margem(k, prev))
         controle = bool(r["controle_auroc_ok"] and r["controle_fnr_ok"] and r["controle_fpr_ok"])
         medida = MEDIDA_DA_DEGRADACAO[r["degradacao"]]
+        # direção (F6 › T3 › Critério, revisto no ensaio): só onde A e B têm efeito; brilho e gama só no FP (§8.3)
+        desfechos = [("fpr", "fp")] if medida == "q_brilho" else [("fnr", "fn"), ("fpr", "fp")]
         direcoes = {}
-        for k, erro in (("fnr", "fn"), ("fpr", "fp")):
+        for k, erro in desfechos:
             ora = a[(a["modelo"] == r["modelo"]) & (a["fonte"] == r["fonte"]) & (a["medida"] == medida) & (a["erro"] == erro)]
             orb = r.get(f"or_nivel_{k}", np.nan)
-            if len(ora) and pd.notna(ora["or_1dp"].iloc[0]) and pd.notna(orb) and orb != 1:
+            a_tem_efeito = len(ora) and pd.notna(ora["or_1dp"].iloc[0]) and ora["p_ajustado"].iloc[0] < 0.05
+            if a_tem_efeito and tend[k] and pd.notna(orb):
                 efeito_b = np.sign(np.log(orb)) * SINAL_DO_LADO[r["lado"]]      # efeito da medida subir sobre o erro
                 direcoes[k] = bool(efeito_b == np.sign(np.log(ora["or_1dp"].iloc[0])))
         mesma_direcao = all(direcoes.values()) if direcoes else None
         n_tend = sum(tend.values())
-        resultado = n_tend >= 2 and controle and mesma_direcao is not False
+        resultado = n_tend >= 2 and controle and mesma_direcao is True
         linhas.append({"modelo": r["modelo"], "fonte": r["fonte"], "degradacao": r["degradacao"], "lado": r["lado"],
                        "medida_eixo_a": medida, "tendencias": ",".join(k for k, v in tend.items() if v) or "-",
                        "n_tendencias": n_tend, "controle_negativo_ok": controle,
-                       "direcao_comparada": ",".join(f"{k}:{'igual' if v else 'oposta'}" for k, v in direcoes.items()) or "-",
+                       "direcao_comparada": ",".join(f"{k}:{'igual' if v else 'oposta'}" for k, v in direcoes.items())
+                       or "sem efeito no eixo A para comparar",
                        "mesma_direcao_eixo_a": mesma_direcao, "t3_dose_resposta": resultado})
     return pd.DataFrame(linhas)
 
@@ -111,10 +116,10 @@ def main(argv=None) -> int:
     print(f"Família 2 (Holm, {len(prim)} testes):")
     for _, r in prim.sort_values(["fonte", "modelo", "degradacao"]).iterrows():
         print(f"  {r['modelo']} × {r['fonte']:13s} | {r['degradacao']:9s} | p {r['p_familia2']:.3g} → Holm {r['p_familia2_holm']:.3g}")
-    print(f"T3 (dose-resposta): {int(t['t3_dose_resposta'].sum())} de {len(t)} curvas")
+    print(f"T3 (dose-resposta; direção comparada só onde A e B têm efeito): {int(t['t3_dose_resposta'].sum())} de {len(t)} curvas")
     for _, r in t.iterrows():
         print(f"  {r['modelo']} × {r['fonte']:13s} | {r['degradacao']:9s} {r['lado']:5s} | tendências {r['tendencias']:12s} | "
-              f"controle {'ok' if r['controle_negativo_ok'] else 'FORA'} | direção {r['direcao_comparada']:22s} | "
+              f"controle {'ok' if r['controle_negativo_ok'] else 'FORA'} | direção {r['direcao_comparada']:34s} | "
               f"T3 {'SIM' if r['t3_dose_resposta'] else 'não'}")
     print(f"RESULTADO: OK (salvo em {saida}/eixo_b_consolidado.csv e t3.csv)")
     return 0

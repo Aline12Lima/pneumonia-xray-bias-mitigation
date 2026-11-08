@@ -25,9 +25,20 @@ def test_familias_e_t3():
     b = familias(_b())
     assert b.loc[0, "p_familia2_holm"] == b.loc[1, "p_familia2_holm"] == 0.002       # 2 testes primários
     assert b.loc[3, "p_fnr_bh"] == 1.0                                                # não estimável → p = 1
-    a = pd.DataFrame({"modelo": ["M1"], "fonte": ["rsna"], "medida": ["q_brilho"], "erro": ["fp"], "or_1dp": [1.3]})
+    a = pd.DataFrame({"modelo": ["M1"], "fonte": ["rsna"], "medida": ["q_brilho"], "erro": ["fp"], "or_1dp": [1.3],
+                      "p_ajustado": [0.001]})
     t = t3(b, a, {"rsna": 0.2})
     r = t.iloc[0]
     assert r["n_tendencias"] == 2 and r["mesma_direcao_eixo_a"] and r["t3_dose_resposta"]
     a.loc[0, "or_1dp"] = 0.7                                                          # eixo A na direção oposta
     assert not t3(b, a, {"rsna": 0.2}).iloc[0]["t3_dose_resposta"]
+
+
+
+def test_t3_sem_efeito_no_eixo_a_nao_compara():
+    b = familias(_b())
+    a = pd.DataFrame({"modelo": ["M1"], "fonte": ["rsna"], "medida": ["q_brilho"], "erro": ["fp"], "or_1dp": [1.3],
+                      "p_ajustado": [0.4]})                                       # A sem efeito
+    r = t3(b, a, {"rsna": 0.2}).iloc[0]
+    assert r["mesma_direcao_eixo_a"] is None and not r["t3_dose_resposta"]
+    assert r["direcao_comparada"] == "sem efeito no eixo A para comparar"
