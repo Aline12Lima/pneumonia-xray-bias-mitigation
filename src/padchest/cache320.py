@@ -21,7 +21,11 @@ Retomada: arquivos já gravados são pulados; um pacote interrompido recomeça d
 Cada PNG é gravado num arquivo temporário e renomeado, para não deixar arquivo pela metade.
 Enquanto um pacote é convertido, o próximo já está sendo baixado. Cada zip é apagado depois.
 
-Uso (no notebook do workflow ``auditoria_padchest``, CPU):
+Caminho principal (desde 8/11): ``python -m src.padchest.segunda_passada --com-cache``, que grava as
+medidas e esta cópia na mesma leitura de cada zip. Este script fica como complemento, para gravar só o
+cache de imagens que faltarem.
+
+Uso (no notebook do workflow ``padchest_teste``, CPU):
     python -m src.padchest.cache320
 """
 from __future__ import annotations
