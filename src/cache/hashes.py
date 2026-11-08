@@ -17,6 +17,7 @@ As listas de teste são lidas só para conferir os arquivos; nada aqui olha rót
 Uso (no notebook da base):
     python -m src.cache.hashes --base plus
     python -m src.cache.hashes --base rsna
+    python -m src.cache.hashes --base padchest   # depois de src.padchest.cache320
 """
 from __future__ import annotations
 
@@ -36,12 +37,15 @@ BASES = {
              "listas": {"treino": "/out/rsna/listas/treino.csv",
                         "validacao": "/out/rsna/listas/validacao.csv",
                         "teste": "/out/rsna/listas_teste_trancado/teste.csv"}},
+    # PadChest: só teste externo (D-006); cache feito por src.padchest.cache320
+    "padchest": {"cache": "/out/padchest/passada/c320_8bits",
+                 "listas": {"teste": "/out/padchest/listas_teste_trancado/teste.csv"}},
 }
 
 
 def nome_cache(ident: str) -> str:
-    """Mesmo nome usado pela passada completa (a chave do Plus tem barras)."""
-    return str(ident).replace("/", "__").removesuffix(".dcm") + ".png"
+    """Mesmo nome usado pela passada completa (a chave do Plus tem barras; a do PadChest já termina em .png)."""
+    return str(ident).replace("/", "__").removesuffix(".dcm").removesuffix(".png") + ".png"
 
 
 def sha256_arquivo(caminho: str) -> str:
