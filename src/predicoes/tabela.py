@@ -30,7 +30,7 @@ from src.predicoes.schema import carregar_schema, validar
 
 TREINOS = "/out/treinos"
 DADOS = "/out/dados"
-FONTE = {"plus": "chexpert_plus", "rsna": "rsna"}
+FONTE = {"plus": "chexpert_plus", "rsna": "rsna", "padchest": "padchest"}
 NOME = "tabela_predicoes_validacao.csv"
 
 
