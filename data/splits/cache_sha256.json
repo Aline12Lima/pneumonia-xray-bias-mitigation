@@ -1,5 +1,5 @@
 {
-  "descricao": "SHA-256 do cache de 320 px em 8 bits (F5, passo 5.1; src/cache/hashes.py). Por partição: arquivos conferidos contra as listas congeladas e o SHA-256 do conjunto (linhas 'id sha256' ordenadas). Os hashes por arquivo ficam só no Redivis (/out/<base>/cache_hashes.csv). PadChest: o cache oficial em 8 bits é gerado na leitura dos pacotes da F8 (1 a 20/11).",
+  "descricao": "SHA-256 do cache de 320 px em 8 bits (F5, passo 5.1; src/cache/hashes.py). Por partição: arquivos conferidos contra as listas congeladas e o SHA-256 do conjunto (linhas 'id sha256' ordenadas). Os hashes por arquivo ficam só no Redivis (/out/<base>/cache_hashes.csv). PadChest: cache de 320 px gerado em 9/11/2026 na reconstrução (segunda passada com --com-cache), mesma conversão oficial das medidas.",
   "gerado_em": "2026-10-30",
   "codigo": "src/cache/hashes.py",
   "bases": {
@@ -41,6 +41,16 @@
         "faltando": 0,
         "megabytes": 260.8,
         "sha256_conjunto": "c0e1c978d44589efaff10cebe57bde43f3b7973881464a2dc5d879f027c81a07"
+      }
+    },
+    "padchest": {
+      "teste": {
+        "arquivos": 24770,
+        "faltando": 0,
+        "megabytes": 1314.4,
+        "sha256_conjunto": "7fc2f81dcbc60302d18ee85eba044f2d07f64ffa6c9af0110284843962100873",
+        "gerado_em": "2026-11-09",
+        "codigo": "src/padchest/segunda_passada.py --com-cache"
       }
     }
   }
