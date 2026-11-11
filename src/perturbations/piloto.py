@@ -13,9 +13,18 @@ Roda em **50 imagens da validação** (nunca do teste) e responde se a opção C
 Nada depende de modelo nem de rótulo. Grava só em ``/out/<base>/eixo_b_piloto/``
 (uma tabela e uma figura; as imagens degradadas não são guardadas, só o tamanho delas).
 
+**Ancoragem da F8** (``--f8``; F6 › Eixo B › Ancoragem da F8): a mesma rotina com a grade fina perto
+do neutro para desfoque, resolução e ruído (lição do ensaio: a resolução 1,5 já derrubava a nitidez
+para além do p1), gravada à parte em ``/out/<base>/eixo_b_ancoragem_f8/``, sem tocar na do ensaio.
+No **PadChest**, que não tem validação, os percentis são os da própria base (as medidas das 24.773
+imagens do recorte) e as 50 imagens vêm do pacote 0 (metade de cada um dos dois fabricantes), lidas
+do zip (precisa de ``PADCHEST_LINK``). Continua sem rótulo e sem modelo.
+
 Uso (no notebook da base, depois do ``git pull``):
     python -m src.perturbations.piloto --base plus
     python -m src.perturbations.piloto --base plus --resumo      # só relê a tabela
+    python -m src.perturbations.piloto --base plus --f8          # ancoragem da F8 (grade fina)
+    python -m src.perturbations.piloto --base padchest --f8      # idem, no PadChest (pacote 0)
 """
 from __future__ import annotations
 
@@ -43,6 +52,16 @@ GRADE = {
     "contraste": [0.4, 0.55, 0.7, 0.85, 0.95],
     "brilho": [-60, -40, -25, -10, 10, 25, 40, 60],
 }
+# grade da F8: a mesma, com passos perto do neutro onde a medida cai rápido (lição do ensaio)
+GRADE_F8 = {
+    "desfoque": [0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24],
+    "ruido": [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24],
+    "resolucao": [1.05, 1.1, 1.15, 1.2, 1.3, 1.4, 1.5, 1.75, 2, 2.5, 3, 4, 6, 8, 12, 16],
+    "gama": [0.5, 0.6, 0.67, 0.75, 0.8, 0.85, 0.9, 0.95, 1.05, 1.1, 1.15, 1.25, 1.35, 1.5, 1.75, 2.0],
+    "contraste": [0.4, 0.5, 0.55, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.975],
+    "brilho": [-60, -50, -40, -30, -25, -20, -15, -10, -5, 5, 10, 15, 20, 25, 30, 40, 50, 60],
+}
+PACOTE_PILOTO_PADCHEST = 0
 PERCENTIS = {"baixo": [25, 10, 5, 1], "alto": [75, 90, 95, 99]}
 NEUTRO = {"gama": 1.0, "contraste": 1.0, "brilho": 0.0, "desfoque": 0.0, "ruido": 0.0, "resolucao": 1.0}
 MEDIDAS = ["q_brilho", "q_contraste", "q_nitidez", "q_ruido"]
@@ -50,11 +69,12 @@ MEDIDAS = ["q_brilho", "q_contraste", "q_nitidez", "q_ruido"]
 BASES = {
     "plus": {"validacao": "/out/plus/listas/validacao.csv", "blocos": "/out/plus/passada/blocos"},
     "rsna": {"validacao": "/out/rsna/listas/validacao.csv", "blocos": "/out/rsna/passada/blocos"},
+    "padchest": {},                                     # sem validação: percentis da base inteira (só medidas)
 }
 
 
-def _saida(base: str) -> str:
-    return f"/out/{base}/eixo_b_piloto"
+def _saida(base: str, f8: bool = False) -> str:
+    return f"/out/{base}/eixo_b_ancoragem_f8" if f8 else f"/out/{base}/eixo_b_piloto"
 
 
 def _semente_imagem(ident: str) -> int:
@@ -70,8 +90,18 @@ def _medir(img8: np.ndarray, roi: np.ndarray) -> dict[str, float]:
 
 
 def naturais(base: str) -> pd.DataFrame:
-    """Medidas da validação, na resolução original, tiradas da passada completa (âncora)."""
+    """Medidas da validação, na resolução original, tiradas da passada completa (âncora).
+    PadChest: as medidas de todas as imagens do recorte (segunda passada), sem rótulo."""
     from src.qualidade.fabricante import normalizar_fabricante
+    if base == "padchest":
+        import glob
+        med = pd.concat([pd.read_csv(a) for a in sorted(glob.glob("/out/padchest/medidas/medidas_pacote_*.csv"))],
+                        ignore_index=True)
+        rec = pd.read_csv("/out/padchest_recorte.csv", usecols=["ImageID", "ImageDir", "Manufacturer_DICOM"])
+        df = med.merge(rec, on="ImageID", how="left").rename(columns={"ImageID": "id"})
+        df = df[df["abriu"].astype(bool)].copy()
+        df["fabricante"] = df["Manufacturer_DICOM"].map(normalizar_fabricante)
+        return df
     from src.passada.passada_completa import juntar
     val = pd.read_csv(BASES[base]["validacao"], usecols=["id"])["id"].astype(str)
     df = juntar(base)
@@ -81,24 +111,36 @@ def naturais(base: str) -> pd.DataFrame:
 
 
 def sortear(nat: pd.DataFrame) -> pd.DataFrame:
-    """50 imagens; no Plus, metade Agfa e metade GE (resoluções diferentes)."""
+    """50 imagens; metade de cada um dos dois fabricantes mais frequentes (Plus: Agfa e GE)."""
     fab = nat["fabricante"].value_counts()
     grupos = [f for f in ("Agfa", "GE") if fab.get(f, 0) >= N_IMAGENS // 2]
+    if len(grupos) < 2:
+        grupos = [f for f in fab.index[:2] if fab[f] >= N_IMAGENS // 2]
     if len(grupos) == 2:
         partes = [nat[nat["fabricante"] == f].sample(N_IMAGENS // 2, random_state=SEMENTE) for f in grupos]
         return pd.concat(partes).reset_index(drop=True)
     return nat.sample(N_IMAGENS, random_state=SEMENTE).reset_index(drop=True)
 
 
-def uma_imagem(caminho: str, ident: str, segmentar) -> tuple[list[dict], dict]:
+def carregar(origem) -> np.ndarray:
+    """Imagem em 8 bits pela conversão oficial: ``origem`` é o caminho de um DICOM (Plus, RSNA) ou a
+    matriz de 16 bits de um PNG do PadChest (tudo MONOCHROME2)."""
+    from src.imagem.conversao import para_8bits
+    if isinstance(origem, np.ndarray):
+        return para_8bits(origem if origem.ndim == 2 else origem[..., 0])
     import pydicom
-    from src.imagem.conversao import para_8bits, redimensionar
-
-    t0 = time.time()
-    ds = pydicom.dcmread(caminho)
+    ds = pydicom.dcmread(origem)
     px = ds.pixel_array
     px = px if px.ndim == 2 else px[..., 0]
-    img8 = para_8bits(px, monochrome1=getattr(ds, "PhotometricInterpretation", "") == "MONOCHROME1")
+    return para_8bits(px, monochrome1=getattr(ds, "PhotometricInterpretation", "") == "MONOCHROME1")
+
+
+def uma_imagem(origem, ident: str, segmentar, grade: dict | None = None) -> tuple[list[dict], dict]:
+    from src.imagem.conversao import redimensionar
+
+    grade = grade or GRADE
+    t0 = time.time()
+    img8 = carregar(origem)
     roi = segmentar(img8)
     roi320 = cv2.resize(roi.astype(np.uint8), (320, 320), interpolation=cv2.INTER_NEAREST)
     c320 = redimensionar(img8, 320)
@@ -116,13 +158,13 @@ def uma_imagem(caminho: str, ident: str, segmentar) -> tuple[list[dict], dict]:
     linha("natural", 0.0, img8, c320)
     figura = {"natural": c320}
     for tipo in ESPACIAIS:                           # na resolução original, depois reduz para 320 px
-        for p in GRADE[tipo]:
+        for p in grade[tipo]:
             d = aplicar(img8, tipo, p, sem)
             d320 = redimensionar(d, 320)
             linha(tipo, float(p), d, d320)
             figura[(tipo, p)] = d320
     for tipo in FOTOMETRICAS:                        # direto na imagem de 320 px
-        for p in GRADE[tipo]:
+        for p in grade[tipo]:
             linha(tipo, float(p), None, aplicar(c320, tipo, p, sem))
     for r in linhas:
         r["segundos_imagem"] = time.time() - t0
@@ -136,7 +178,9 @@ def montar_figura(figura: dict, destino: str) -> None:
         return cv2.resize(x, (240, 240), interpolation=cv2.INTER_NEAREST)
     linhas = []
     for tipo in ESPACIAIS:
-        params = [GRADE[tipo][i] for i in np.linspace(0, len(GRADE[tipo]) - 1, 5).round().astype(int)]
+        g = [p for p in figura if isinstance(p, tuple) and p[0] == tipo]
+        todos = sorted(p for _, p in g)
+        params = [todos[i] for i in np.linspace(0, len(todos) - 1, 5).round().astype(int)]
         painel = [recorte(figura["natural"])] + [recorte(figura[(tipo, p)]) for p in params]
         painel = [cv2.putText(cv2.cvtColor(im, cv2.COLOR_GRAY2BGR), txt, (6, 20), cv2.FONT_HERSHEY_SIMPLEX,
                               0.5, (0, 0, 255), 1) for im, txt in
@@ -145,39 +189,71 @@ def montar_figura(figura: dict, destino: str) -> None:
     cv2.imwrite(destino, np.vstack(linhas))
 
 
-def rodar(base: str) -> None:
-    from src.imagem.mascara import segmentar
+def imagens_da_amostra(base: str, ids: list[str]):
+    """Gera (ident, origem) para ``carregar``: DICOM baixado (Plus, RSNA) ou matriz do zip (PadChest)."""
+    if base == "padchest":
+        import zipfile
+        from src.padchest.segunda_passada import baixar_pacote
+        link = os.environ.get("PADCHEST_LINK")
+        if not link:
+            raise SystemExit("Defina PADCHEST_LINK no notebook (o link não fica no repositório).")
+        zipf = baixar_pacote(link, PACOTE_PILOTO_PADCHEST)
+        try:
+            with zipfile.ZipFile(zipf) as z:
+                nomes = {os.path.basename(m): m for m in z.namelist() if m.lower().endswith(".png")}
+                for ident in ids:
+                    g = cv2.imdecode(np.frombuffer(z.read(nomes[ident]), np.uint8), cv2.IMREAD_UNCHANGED)
+                    yield ident, g
+        finally:
+            os.remove(zipf)
+        return
     from src.passada.passada_completa import BASES as BP, baixador
+    alvo = pd.read_csv(BP[base]["tabela"])
+    alvo = alvo[alvo[BP[base]["id"]].astype(str).isin(ids)]
+    baixar = baixador(base, alvo)
+    for ident in ids:
+        caminho = baixar(ident)
+        try:
+            yield ident, caminho
+        finally:
+            shutil.rmtree(os.path.dirname(caminho), ignore_errors=True)
 
-    saida = _saida(base)
+
+def rodar(base: str, f8: bool = False) -> None:
+    from src.imagem.mascara import segmentar
+
+    saida = _saida(base, f8)
     os.makedirs(saida, exist_ok=True)
     nat = naturais(base)
-    amostra = sortear(nat)
+    candidatas = nat[nat["ImageDir"] == PACOTE_PILOTO_PADCHEST] if base == "padchest" else nat
+    amostra = sortear(candidatas)
     amostra[["id", "fabricante"]].to_csv(f"{saida}/amostra.csv", index=False)
-    print(f"{base}: {len(nat)} imagens da validação com medidas | piloto em {len(amostra)}", flush=True)
-    alvo = pd.read_csv(BP[base]["tabela"])
-    alvo = alvo[alvo[BP[base]["id"]].astype(str).isin(amostra["id"])]
-    baixar = baixador(base, alvo)
+    print(f"{base}: {len(nat)} imagens com medidas (âncora) | piloto em {len(amostra)} | "
+          f"grade {'da F8 (fina)' if f8 else 'do ensaio'}", flush=True)
     todas, t0 = [], time.time()
-    for i, ident in enumerate(amostra["id"]):
-        caminho = None
+    it = imagens_da_amostra(base, amostra["id"].astype(str).tolist())
+    for i in range(len(amostra)):
         try:
-            caminho = baixar(ident)
-            linhas, fig = uma_imagem(caminho, ident, segmentar)
+            ident, origem = next(it)
+        except StopIteration:
+            break
+        except Exception as e:
+            print(f"  imagem {i}: {type(e).__name__}: {str(e)[:80]}", flush=True)
+            continue
+        try:
+            linhas, fig = uma_imagem(origem, ident, segmentar, GRADE_F8 if f8 else GRADE)
             todas += linhas
-            if i == 0:
+            if not os.path.exists(f"{saida}/figura_espaciais.png"):
                 montar_figura(fig, f"{saida}/figura_espaciais.png")
         except Exception as e:
             print(f"  {ident}: {type(e).__name__}: {str(e)[:80]}", flush=True)
-        finally:
-            if caminho:
-                shutil.rmtree(os.path.dirname(caminho), ignore_errors=True)
         if (i + 1) % 10 == 0:
             print(f"  {i + 1}/{len(amostra)} | {(time.time() - t0) / (i + 1):.1f} s por imagem", flush=True)
+    it.close()
     df = pd.DataFrame(todas).merge(amostra[["id", "fabricante"]], on="id", how="left")
     df.to_csv(f"{saida}/piloto.csv", index=False)
     print(f"Tabela: {saida}/piloto.csv | figura: {saida}/figura_espaciais.png\n", flush=True)
-    resumo(base)
+    resumo(base, f8)
 
 
 def tabela_resumo(df: pd.DataFrame, nat: pd.DataFrame) -> pd.DataFrame:
@@ -224,8 +300,8 @@ def ancoragem(df: pd.DataFrame, nat: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(linhas)
 
 
-def resumo(base: str) -> None:
-    saida = _saida(base)
+def resumo(base: str, f8: bool = False) -> None:
+    saida = _saida(base, f8)
     df = pd.read_csv(f"{saida}/piloto.csv")
     nat = naturais(base)
     n = df[df["tipo"] == "natural"]
@@ -260,11 +336,14 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--base", choices=sorted(BASES), required=True)
     ap.add_argument("--resumo", action="store_true", help="só relê a tabela do piloto")
+    ap.add_argument("--f8", action="store_true", help="ancoragem da F8 (grade fina), em eixo_b_ancoragem_f8/")
     a = ap.parse_args(argv)
+    if a.base == "padchest" and not a.f8:
+        raise SystemExit("no PadChest só existe a ancoragem da F8 (--f8)")
     if a.resumo:
-        resumo(a.base)
+        resumo(a.base, a.f8)
     else:
-        rodar(a.base)
+        rodar(a.base, a.f8)
     return 0
 
 

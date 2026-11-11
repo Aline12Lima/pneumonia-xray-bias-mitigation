@@ -57,3 +57,50 @@ def test_ancoragem_inclui_a_imagem_natural():
     nat = pd.DataFrame({"q_nitidez": np.linspace(150, 400, 100)})
     a = ancoragem(pd.DataFrame(linhas), nat)
     assert a["parametro"].notna().all() and (a["parametro"] < 0.5).all()   # entre a natural e o 1º passo
+
+
+def test_uma_imagem_aceita_matriz_do_padchest(tmp_path):
+    import cv2
+    rng = np.random.default_rng(2)
+    g = (np.linspace(500, 3500, 500)[None, :] + rng.normal(0, 50, (600, 500))).clip(0, 4095).astype(np.uint16) * 16
+    niv = pd.DataFrame({"degradacao": ["brilho", "resolucao"], "percentil": ["p75", "p10"],
+                        "parametro": [10.0, 1.2], "alvo": [120.0, 50.0]})
+    seg = lambda img: np.pad(np.ones((img.shape[0] - 100, img.shape[1] - 100), np.uint8), 50)   # noqa: E731
+    linhas = uma_imagem(g, "123_abc.png", niv, str(tmp_path), seg)
+    assert [l["nivel"] for l in linhas] == ["0", "p75", "p10"]
+    assert all(cv2.imread(l["caminho"], cv2.IMREAD_GRAYSCALE).shape == (320, 320) for l in linhas)
+    assert linhas[0]["caminho"].endswith("123_abc__nenhuma__0.png")
+
+
+def test_teste_do_eixo_b_exige_destrancamento(tmp_path, monkeypatch):
+    import src.predicoes.teste as T
+    from src.perturbations.eixo_b import tabela_da_particao
+    arq = tmp_path / "teste.csv"
+    pd.DataFrame({"id": ["a", "b"], "patientId": ["1", "2"], "rotulo": ["positivo", "negativo"]}).to_csv(arq, index=False)
+    monkeypatch.setattr(T, "lista", lambda b, simulado: (str(arq), "teste"))
+    with pytest.raises(PermissionError, match="trancado"):
+        tabela_da_particao("rsna", "teste")
+
+
+def test_ancoragem_da_f8_vai_para_outra_pasta():
+    from src.perturbations.eixo_b import arquivo_ancoragem
+    from src.perturbations.piloto import GRADE, GRADE_F8
+    assert arquivo_ancoragem("plus", "validacao") == "/out/plus/eixo_b_piloto/ancoragem.csv"
+    assert arquivo_ancoragem("padchest", "teste") == "/out/padchest/eixo_b_ancoragem_f8/ancoragem.csv"
+    for tipo in GRADE:                                  # a grade da F8 contém a do ensaio e passos menores
+        assert set(GRADE[tipo]) <= set(GRADE_F8[tipo])
+    assert min(GRADE_F8["resolucao"]) < 1.5 and min(GRADE_F8["desfoque"]) < 0.5
+
+
+def test_piloto_sorteia_dois_fabricantes_mais_frequentes():
+    from src.perturbations.piloto import sortear as sortear_piloto
+    nat = pd.DataFrame({"id": [str(i) for i in range(300)],
+                        "fabricante": ["Philips"] * 200 + ["ImagingDynamics"] * 80 + ["Outro"] * 20})
+    a = sortear_piloto(nat)
+    assert a["fabricante"].value_counts().to_dict() == {"Philips": 25, "ImagingDynamics": 25}
+
+
+def test_prevalencia_do_teste_pelas_contagens_congeladas():
+    from src.analises.eixo_b import prevalencia
+    assert abs(prevalencia("padchest", "teste") - 796 / 24770) < 1e-12
+    assert abs(prevalencia("plus", "teste") - 690 / (35457 - 3065)) < 1e-12

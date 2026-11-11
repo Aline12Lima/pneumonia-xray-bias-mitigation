@@ -16,11 +16,20 @@ Retomada: cada imagem pronta vai para o manifesto; rodar de novo pula as que já
 grava a tabela no formato do schema, com ``degradacao`` e ``nivel``.
 
 Amostra: no ensaio (``--particao validacao``), 100 positivos e 400 negativos da validação, sorteados
-por paciente (semente 2026; F6 › Eixo B › Amostra do ensaio). O teste só depois do destrancamento.
+por paciente (semente 2026; F6 › Eixo B › Amostra do ensaio).
+
+**Teste (F8, ``--particao teste``)**, só depois do destrancamento (mesma trava de
+``src.predicoes.teste``): amostra do protocolo (todos os positivos da regra primária e 4 negativos por
+positivo, um por paciente, semente 2026); níveis da ancoragem da F8 (``/out/<base>/eixo_b_ancoragem_f8/``,
+grade fina; ``src.perturbations.piloto --f8``); no PadChest, as imagens originais vêm dos zips, um pacote
+por vez (precisa de ``PADCHEST_LINK``). A predição usa as covariáveis gravadas por
+``src.predicoes.teste`` (``/out/teste/<base>/covariaveis``), então roda depois do passo 6.8.
 
 Uso (notebook da base):
-    python -m src.perturbations.eixo_b --base plus --gerar                 # CPU
+    python -m src.perturbations.eixo_b --base plus --gerar                 # CPU (ensaio, validação)
     python -m src.perturbations.eixo_b --base plus --predizer              # GPU
+    python -m src.perturbations.eixo_b --base plus --particao teste --gerar      # F8, depois de 6.7
+    python -m src.perturbations.eixo_b --base plus --particao teste --predizer   # F8, GPU
 """
 from __future__ import annotations
 
@@ -40,7 +49,7 @@ from src.perturbations.degradacoes import ESPACIAIS, FOTOMETRICAS, MEDIDA_ALVO, 
 
 SEMENTE = 2026
 POSITIVOS_ENSAIO, NEG_POR_POS = 100, 4
-FONTE = {"plus": "chexpert_plus", "rsna": "rsna"}
+FONTE = {"plus": "chexpert_plus", "rsna": "rsna", "padchest": "padchest"}
 
 
 def _pasta(base: str, particao: str) -> str:
@@ -67,6 +76,12 @@ def sortear(tab: pd.DataFrame, positivos: int | None, neg_por_pos: int = NEG_POR
     return pd.concat([pos, neg]).reset_index(drop=True)
 
 
+def arquivo_ancoragem(base: str, particao: str) -> str:
+    """Ensaio: a ancoragem do piloto de 30/10. Teste (F8): a da grade fina."""
+    pasta = "eixo_b_ancoragem_f8" if particao == "teste" else "eixo_b_piloto"
+    return f"/out/{base}/{pasta}/ancoragem.csv"
+
+
 def niveis(base: str, ancoragem: str | None = None) -> tuple[pd.DataFrame, list[str]]:
     anc = pd.read_csv(ancoragem or f"/out/{base}/eixo_b_piloto/ancoragem.csv")
     fora = [f"{r.degradacao} {r.percentil}" for r in anc.itertuples() if pd.isna(r.parametro)]
@@ -80,15 +95,13 @@ def _medir(img8, roi, medida):
         return float(medidas_qualidade(img8, roi)[medida])
 
 
-def uma_imagem(caminho_dcm: str, ident: str, niv: pd.DataFrame, pasta_img: str, segmentar) -> list[dict]:
-    import pydicom
-    from src.imagem.conversao import para_8bits, redimensionar
+def uma_imagem(origem, ident: str, niv: pd.DataFrame, pasta_img: str, segmentar) -> list[dict]:
+    """``origem``: caminho do DICOM (Plus, RSNA) ou matriz de 16 bits do PNG (PadChest)."""
+    from src.imagem.conversao import redimensionar
     from src.passada.passada_completa import nome_cache
+    from src.perturbations.piloto import carregar
 
-    ds = pydicom.dcmread(caminho_dcm)
-    px = ds.pixel_array
-    px = px if px.ndim == 2 else px[..., 0]
-    img8 = para_8bits(px, monochrome1=getattr(ds, "PhotometricInterpretation", "") == "MONOCHROME1")
+    img8 = carregar(origem)
     roi = segmentar(img8)
     roi320 = cv2.resize(roi.astype(np.uint8), (320, 320), interpolation=cv2.INTER_NEAREST)
     c320 = redimensionar(img8, 320)
@@ -116,20 +129,77 @@ def uma_imagem(caminho_dcm: str, ident: str, niv: pd.DataFrame, pasta_img: str, 
     return linhas
 
 
+def tabela_da_particao(base: str, particao: str) -> pd.DataFrame:
+    """Validação: o carregador de treino. Teste: a lista trancada, só depois da trava (passo 6.7)."""
+    if particao == "validacao":
+        from src.treino.carregador import ler_particao
+        return ler_particao(base, particao)
+    if particao != "teste":
+        raise ValueError(f"partição desconhecida: {particao}")
+    from src.predicoes.teste import conferir_trava, imagens, lista
+    arq, _ = lista(base, simulado=False)
+    principal, incertos = imagens(base, arq)
+    conferir_trava(base, pd.concat([principal["id"], incertos["id"]]))
+    return principal
+
+
+def origens(base: str, ids: list[str]):
+    """Gera (ident, origem) na ordem mais barata: DICOM a DICOM (Plus, RSNA) ou pacote a pacote (PadChest,
+    com o próximo zip baixando enquanto o atual é processado). Falha de uma imagem: origem = exceção."""
+    if base == "padchest":
+        import zipfile
+        from concurrent.futures import ThreadPoolExecutor
+        from src.padchest.segunda_passada import RECORTE, baixar_pacote
+        link = os.environ.get("PADCHEST_LINK")
+        if not link:
+            raise SystemExit("Defina PADCHEST_LINK no notebook (o link não fica no repositório).")
+        rec = pd.read_csv(RECORTE, usecols=["ImageID", "ImageDir"]).astype({"ImageID": str})
+        pac = rec[rec["ImageID"].isin(ids)].groupby("ImageDir")["ImageID"].apply(list).to_dict()
+        ordem = sorted(pac)
+        with ThreadPoolExecutor(1) as ex:
+            futuro = ex.submit(baixar_pacote, link, ordem[0]) if ordem else None
+            for k, n in enumerate(ordem):
+                zipf = futuro.result()
+                futuro = ex.submit(baixar_pacote, link, ordem[k + 1]) if k + 1 < len(ordem) else None
+                with zipfile.ZipFile(zipf) as z:
+                    nomes = {os.path.basename(m): m for m in z.namelist() if m.lower().endswith(".png")}
+                    for ident in pac[n]:
+                        try:
+                            g = cv2.imdecode(np.frombuffer(z.read(nomes[ident]), np.uint8), cv2.IMREAD_UNCHANGED)
+                            yield ident, g
+                        except Exception as e:
+                            yield ident, e
+                os.remove(zipf)
+                print(f"  pacote {n}: {len(pac[n])} imagens | zip apagado", flush=True)
+        return
+    from src.passada.passada_completa import BASES as BP, baixador
+    alvo = pd.read_csv(BP[base]["tabela"])
+    alvo = alvo[alvo[BP[base]["id"]].astype(str).isin(ids)]
+    baixar = baixador(base, alvo)
+    for ident in ids:
+        try:
+            caminho = baixar(ident)
+        except Exception as e:
+            yield ident, e
+            continue
+        try:
+            yield ident, caminho
+        finally:
+            shutil.rmtree(os.path.dirname(caminho), ignore_errors=True)
+
+
 def gerar(base: str, particao: str, limite: int | None = None) -> int:
     from src.imagem.mascara import segmentar
-    from src.passada.passada_completa import BASES as BP, baixador
-    from src.treino.carregador import ler_particao
 
-    if particao != "validacao":
-        raise ValueError("só a validação no ensaio geral; o teste entra depois do destrancamento (passo 6.7)")
+    if base == "padchest" and particao != "teste":
+        raise ValueError("o PadChest só tem teste")
     pasta = _pasta(base, particao)
     pasta_img = os.path.join(pasta, "imagens")
     os.makedirs(pasta_img, exist_ok=True)
-    tab = ler_particao(base, particao)
-    amostra = sortear(tab, POSITIVOS_ENSAIO)
+    tab = tabela_da_particao(base, particao)
+    amostra = sortear(tab, None if particao == "teste" else POSITIVOS_ENSAIO)
     amostra.to_csv(os.path.join(pasta, "amostra.csv"), index=False)
-    niv, fora = niveis(base)
+    niv, fora = niveis(base, arquivo_ancoragem(base, particao))
     arq_niv = os.path.join(pasta, "niveis.csv")
     if os.path.exists(arq_niv) and os.path.exists(os.path.join(pasta, "manifesto.csv")):
         antigos = pd.read_csv(arq_niv)
@@ -145,22 +215,16 @@ def gerar(base: str, particao: str, limite: int | None = None) -> int:
     if limite:
         faltam = faltam[:limite]
     print(f"  já prontas: {len(feitas)} | faltam {len(faltam)}", flush=True)
-    alvo = pd.read_csv(BP[base]["tabela"])
-    alvo = alvo[alvo[BP[base]["id"]].astype(str).isin(faltam)]
-    baixar = baixador(base, alvo)
     t0, erros = time.time(), 0
-    for k, ident in enumerate(faltam):
-        caminho = None
+    for k, (ident, origem) in enumerate(origens(base, faltam)):
         try:
-            caminho = baixar(ident)
-            linhas = uma_imagem(caminho, ident, niv, pasta_img, segmentar)
+            if isinstance(origem, Exception):
+                raise origem
+            linhas = uma_imagem(origem, ident, niv, pasta_img, segmentar)
             pd.DataFrame(linhas).to_csv(man_arq, mode="a", header=not os.path.exists(man_arq), index=False)
         except Exception as e:
             erros += 1
             print(f"  {ident}: {type(e).__name__}: {str(e)[:100]}", flush=True)
-        finally:
-            if caminho:
-                shutil.rmtree(os.path.dirname(caminho), ignore_errors=True)
         if (k + 1) % 25 == 0:
             print(f"  {k + 1}/{len(faltam)} | {(time.time() - t0) / (k + 1):.1f} s por imagem", flush=True)
     return resumo_geracao(base, particao, erros)
@@ -190,6 +254,9 @@ def predizer_eixo_b(base: str, particao: str, modelos: str = "/out/modelos") -> 
     from src.predicoes.tabela import para_schema
 
     pasta = _pasta(base, particao)
+    if particao == "teste":                              # a trava vale também para a predição
+        tabela_da_particao(base, particao)
+    dados = f"/out/teste/{base}/covariaveis" if particao == "teste" else "/out"
     man = pd.read_csv(os.path.join(pasta, "manifesto.csv"), dtype={"id": str, "nivel": str})
     amostra = pd.read_csv(os.path.join(pasta, "amostra.csv"), dtype={"id": str, "paciente": str})
     if man["id"].nunique() != len(amostra):
@@ -202,7 +269,7 @@ def predizer_eixo_b(base: str, particao: str, modelos: str = "/out/modelos") -> 
             pred = predizer(os.path.join(modelos, ex), img)
             pred["degradacao"], pred["nivel"] = img["degradacao"].to_numpy(), img["nivel"].to_numpy()
             res = json.load(open(os.path.join(modelos, ex, "resumo.json"), encoding="utf-8"))
-            t = para_schema(pred, res, os.path.join(modelos, ex), [base], dados="/out", particao=particao)
+            t = para_schema(pred, res, os.path.join(modelos, ex), [base], dados=dados, particao=particao)
             erros = validar(t)
             if erros:
                 problemas.append((ex, erros))
