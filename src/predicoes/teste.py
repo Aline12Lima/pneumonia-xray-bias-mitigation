@@ -48,14 +48,17 @@ TRAVA = os.path.join(RAIZ_REPO, "docs", "destrancamento.json")
 HASHES_LISTAS = os.path.join(RAIZ_REPO, "data", "splits", "listas_sha256.json")
 FONTE = {"plus": "chexpert_plus", "rsna": "rsna", "padchest": "padchest"}
 CACHE = {"plus": "/out/plus/passada/c320_8bits", "rsna": "/out/rsna/passada/c320_8bits",
-         "padchest": "/out/padchest/passada/c320_8bits"}
+         "padchest": "/out/padchest/passada/c320_8bits", "padchest_janela": "/out/padchest/passada/c320_janela"}
 HASHES_CACHE = "/out/{base}/cache_hashes.csv"
 ROTULOS = {"positivo": 1, "negativo": 0}
 POSICAO_PADCHEST = {"PA": "PA", "AP": "AP", "AP_horizontal": "AP"}
 
 
 def lista(base: str, simulado: bool) -> tuple[str, str]:
-    """(arquivo da lista, partição). No modo simulado, a validação; no PadChest simulado, o próprio teste."""
+    """(arquivo da lista, partição). No modo simulado, a validação; no PadChest simulado, o próprio teste.
+    ``padchest_janela``: o subconjunto Philips da lista (``src.padchest.janela``)."""
+    if base == "padchest_janela":
+        return "/out/padchest/lista_janela.csv", "teste"
     if simulado and base != "padchest":
         return f"/out/{base}/listas/validacao.csv", "validacao"
     return f"/out/{base}/listas_teste_trancado/teste.csv", "teste"
@@ -140,19 +143,27 @@ def covariaveis(base: str, ids) -> pd.DataFrame:
 
 # ------------------------------------------------------------------ execução
 def rodar(base: str, simulado: bool, modelos: str = "/out/modelos", saida_raiz: str | None = None,
-          predizer_fn=None, cov_fn=None, workers: int = 4) -> dict:
+          predizer_fn=None, cov_fn=None, workers: int = 4, conversao: str = "percentis") -> dict:
     from src.predicoes.pos_treino import SEMENTES, TAXA
     from src.predicoes.schema import validar
     from src.predicoes.tabela import para_schema
     from src.treino.carregador import conferir_hashes
 
-    arq, particao = lista(base, simulado)
-    principal, incertos = imagens(base, arq)
+    chave = "padchest_janela" if conversao == "janela" else base
+    if conversao == "janela" and base != "padchest":
+        raise ValueError("a conversão alternativa (janela) só existe no PadChest")
+    arq, particao = lista(chave, simulado)
+    principal, incertos = imagens(base, arq, CACHE[chave])
     todas = pd.concat([principal, incertos], ignore_index=True)
-    trava = None if simulado else conferir_trava(base, todas["id"])
-    conferir_hashes(todas, HASHES_CACHE.format(base=base), marcas="")      # sempre a conferência completa
+    if simulado:
+        trava = None
+    else:                                    # a trava confere a lista inteira da base, não o subconjunto
+        arq_base, _ = lista(base, False)
+        ids_base = pd.read_csv(arq_base, usecols=["id"], dtype={"id": str})["id"]
+        trava = conferir_trava(base, ids_base)
+    conferir_hashes(todas, HASHES_CACHE.format(base=chave), marcas="")     # sempre a conferência completa
     sem_modelo = simulado and base == "padchest"
-    saida = os.path.join(saida_raiz or ("/out/teste_simulado" if simulado else "/out/teste"), base)
+    saida = os.path.join(saida_raiz or ("/out/teste_simulado" if simulado else "/out/teste"), chave)
     pasta_cov = os.path.join(saida, "covariaveis")
     os.makedirs(os.path.join(pasta_cov, base), exist_ok=True)
     cov = (cov_fn or covariaveis)(base, todas["id"])
@@ -195,7 +206,7 @@ def rodar(base: str, simulado: bool, modelos: str = "/out/modelos", saida_raiz: 
         tab.to_csv(arq_saida, index=False, compression="gzip")
         arquivos.append(arq_saida)
     commit = _git("rev-parse", "--short", "HEAD").stdout.strip()
-    resumo = {"base": base, "particao": particao, "simulado": simulado, "sem_modelo": sem_modelo,
+    resumo = {"base": base, "conversao": conversao, "particao": particao, "simulado": simulado, "sem_modelo": sem_modelo,
               "imagens": int(len(principal)), "positivos": int(principal["rotulo"].sum()),
               "incertos": int(len(incertos)), "pacientes": int(todas["paciente"].nunique()),
               "execucoes": int(len(tabs["principal"])), "commit": commit,
@@ -214,18 +225,20 @@ def main(argv=None) -> int:
     ap.add_argument("--simulado", action="store_true", help="antes da tag: validação (Plus, RSNA) ou sem modelo (PadChest)")
     ap.add_argument("--enviar", action="store_true", help="envia as tabelas ao dataset resultados (só fora do simulado)")
     ap.add_argument("--modelos", default="/out/modelos")
+    ap.add_argument("--conversao", choices=["percentis", "janela"], default="percentis",
+                    help="janela: sensibilidade da conversão no PadChest (Philips; src.padchest.janela)")
     ap.add_argument("--workers", type=int, default=min(4, os.cpu_count() or 1))
     a = ap.parse_args(argv)
     if a.simulado and a.enviar:
         raise SystemExit("o modo simulado não envia nada")
-    r = rodar(a.base, a.simulado, a.modelos, workers=a.workers)
+    r = rodar(a.base, a.simulado, a.modelos, workers=a.workers, conversao=a.conversao)
     print(f"\n{a.base} | partição {r['particao']}{' (SIMULADO' + (', sem modelo' if r['sem_modelo'] else '') + ')' if a.simulado else ''} | "
           f"{r['imagens']} imagens, {r['positivos']} positivos, {r['incertos']} incertas, {r['pacientes']} pacientes | "
           f"{r['execucoes']} execuções | commit {r['commit']}")
     print(f"Arquivos: {r['arquivos']}")
     if a.enviar and not r["problemas_schema"]:
         from src.cache.resultados import enviar
-        enviar(r["_arquivos"], origem=f"{a.base}__teste")
+        enviar(r["_arquivos"], origem=f"{a.base}__teste" + ("_janela" if a.conversao == "janela" else ""))
     print("RESULTADO:", "OK" if not r["problemas_schema"] else f"PROBLEMAS NO SCHEMA: {r['problemas_schema'][:2]}")
     return 0 if not r["problemas_schema"] else 1
 

@@ -8,7 +8,11 @@ No notebook de treino, depois de ``python -m src.cache.resultados --baixar``, es
   incertos), de positivos e de pacientes, e as 15 execuções em cada imagem;
 - valida o schema e grava ``/out/predicoes/tabela_teste.csv`` (regra primária, a que as análises leem) e
   ``/out/predicoes/tabela_teste_sensibilidade_incertos.csv`` (a mesma, mais os incertos do Plus com
-  rótulo 1: sensibilidade de D-018).
+  rótulo 1: sensibilidade de D-018);
+- se existir ``padchest__teste_janela__tabela_teste.csv.gz`` (conversão alternativa do PadChest, só
+  Philips), ``tabela_teste_sensibilidade_janela.csv`` (Plus e RSNA como na primária, PadChest pela janela)
+  e ``tabela_teste_sensibilidade_janela_referencia.csv`` (a primária restrita às mesmas imagens do
+  PadChest). As duas rodam no E0 e a diferença entre elas é a sensibilidade da conversão.
 
 As análises (E0, eixo A, T1/T2, eixo C) rodam depois com ``--tabela /out/predicoes/tabela_teste.csv``,
 com o bootstrap padrão (2.000).
@@ -92,6 +96,17 @@ def main(argv=None) -> int:
     os.makedirs(a.saida, exist_ok=True)
     tab.to_csv(os.path.join(a.saida, "tabela_teste.csv"), index=False)
     sens.to_csv(os.path.join(a.saida, "tabela_teste_sensibilidade_incertos.csv"), index=False)
+    arq_j = os.path.join(a.resultados, "padchest__teste_janela__tabela_teste.csv.gz")
+    if os.path.exists(arq_j):
+        jan = pd.read_csv(arq_j, dtype={"id_imagem": str, "id_paciente": str, "id_estudo": str,
+                                        "fabricante": "object", "nivel": str})
+        ids = set(jan["id_imagem"])
+        outras = tab[tab["fonte"] != "padchest"]
+        ref = pd.concat([outras, tab[(tab["fonte"] == "padchest") & tab["id_imagem"].isin(ids)]], ignore_index=True)
+        pd.concat([outras, jan], ignore_index=True).to_csv(
+            os.path.join(a.saida, "tabela_teste_sensibilidade_janela.csv"), index=False)
+        ref.to_csv(os.path.join(a.saida, "tabela_teste_sensibilidade_janela_referencia.csv"), index=False)
+        print(f"Sensibilidade da conversão (PadChest Philips, janela): {jan['id_imagem'].nunique()} imagens")
     for f, g in tab.groupby("fonte"):
         u = g.drop_duplicates("id_imagem")
         print(f"  {f:13s} | {len(u)} imagens, {int(u['rotulo'].sum())} positivos, {u['id_paciente'].nunique()} pacientes | "

@@ -150,3 +150,17 @@ def test_sem_simulado_exige_trava(tmp_path, monkeypatch):
     monkeypatch.setattr(T.conferir_trava, "__defaults__", (str(tmp_path / "nao_existe.json"), T.HASHES_LISTAS, T.RAIZ_REPO))
     with pytest.raises(PermissionError):
         T.rodar("rsna", False, str(tmp_path), str(tmp_path / "saida"), cov_fn=lambda b, i: cov)
+
+
+def test_conversao_janela_usa_cache_proprio(tmp_path, monkeypatch):
+    cache, lista, cov = _base_falsa(tmp_path, "padchest")
+    vistos = []
+    monkeypatch.setattr(T, "lista", lambda b, s: (vistos.append(b), (str(lista), "teste"))[1])
+    monkeypatch.setattr(T, "CACHE", {"padchest": "/nao/usar", "padchest_janela": str(cache)})
+    monkeypatch.setattr(T, "HASHES_CACHE", str(tmp_path / "hashes.csv"))
+    r = T.rodar("padchest", True, str(tmp_path), str(tmp_path / "saida"), predizer_fn=None,
+                cov_fn=lambda b, i: cov, conversao="janela")
+    assert vistos == ["padchest_janela"] and r["conversao"] == "janela" and not r["problemas_schema"]
+    assert (tmp_path / "saida" / "padchest_janela" / "tabela_teste.csv.gz").exists()
+    with pytest.raises(ValueError):
+        T.rodar("rsna", True, str(tmp_path), str(tmp_path / "s2"), cov_fn=lambda b, i: cov, conversao="janela")

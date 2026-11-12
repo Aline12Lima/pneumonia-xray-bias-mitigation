@@ -40,6 +40,9 @@ BASES = {
     # PadChest: só teste externo (D-006); cache feito por src.padchest.cache320
     "padchest": {"cache": "/out/padchest/passada/c320_8bits",
                  "listas": {"teste": "/out/padchest/listas_teste_trancado/teste.csv"}},
+    # sensibilidade da conversão (janela do CSV, só Philips): src.padchest.janela
+    "padchest_janela": {"cache": "/out/padchest/passada/c320_janela",
+                        "listas": {"teste": "/out/padchest/lista_janela.csv"}},
 }
 
 
@@ -91,6 +94,7 @@ def main(argv=None) -> int:
     cfg = BASES[a.base]
     df, resumo = calcular(cfg["cache"], cfg["listas"])
     saida = f"/out/{a.base}"
+    os.makedirs(saida, exist_ok=True)
     df.to_csv(f"{saida}/cache_hashes.csv", index=False)
     with open(f"{saida}/cache_hashes_resumo.json", "w", encoding="utf-8") as f:
         json.dump({"base": a.base, "particoes": resumo}, f, indent=2, ensure_ascii=False)

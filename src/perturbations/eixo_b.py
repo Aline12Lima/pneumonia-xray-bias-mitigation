@@ -153,8 +153,10 @@ def origens(base: str, ids: list[str]):
         link = os.environ.get("PADCHEST_LINK")
         if not link:
             raise SystemExit("Defina PADCHEST_LINK no notebook (o link não fica no repositório).")
+        from src.padchest.janela import gravar_do_zip, preparar
         rec = pd.read_csv(RECORTE, usecols=["ImageID", "ImageDir"]).astype({"ImageID": str})
         pac = rec[rec["ImageID"].isin(ids)].groupby("ImageDir")["ImageID"].apply(list).to_dict()
+        rec_janela = preparar()                         # sensibilidade da conversão: mesma leitura dos zips
         ordem = sorted(pac)
         with ThreadPoolExecutor(1) as ex:
             futuro = ex.submit(baixar_pacote, link, ordem[0]) if ordem else None
@@ -163,6 +165,7 @@ def origens(base: str, ids: list[str]):
                 futuro = ex.submit(baixar_pacote, link, ordem[k + 1]) if k + 1 < len(ordem) else None
                 with zipfile.ZipFile(zipf) as z:
                     nomes = {os.path.basename(m): m for m in z.namelist() if m.lower().endswith(".png")}
+                    kj = gravar_do_zip(z, nomes, rec_janela, n)
                     for ident in pac[n]:
                         try:
                             g = cv2.imdecode(np.frombuffer(z.read(nomes[ident]), np.uint8), cv2.IMREAD_UNCHANGED)
@@ -170,7 +173,7 @@ def origens(base: str, ids: list[str]):
                         except Exception as e:
                             yield ident, e
                 os.remove(zipf)
-                print(f"  pacote {n}: {len(pac[n])} imagens | zip apagado", flush=True)
+                print(f"  pacote {n}: {len(pac[n])} imagens do eixo B, {kj} cópias da janela | zip apagado", flush=True)
         return
     from src.passada.passada_completa import BASES as BP, baixador
     alvo = pd.read_csv(BP[base]["tabela"])
