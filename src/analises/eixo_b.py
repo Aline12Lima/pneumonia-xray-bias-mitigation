@@ -16,7 +16,8 @@ Por modelo, degradação e lado (gama e brilho: escurecer e clarear; as outras: 
   o menor p dos dois lados × 2 (Bonferroni dentro da degradação), mantendo 27 testes.
 
 Uso (notebook da base, CPU):
-    python -m src.analises.eixo_b --base plus --bootstrap 200
+    python -m src.analises.eixo_b --base plus --bootstrap 200                       # ensaio
+    python -m src.analises.eixo_b --base padchest --particao teste                  # F8 (2.000 reamostragens)
 """
 from __future__ import annotations
 
@@ -159,17 +160,26 @@ def rodar(tab: pd.DataFrame, modelos: str, prevalencia: float, n_boot: int) -> p
     return res
 
 
+def prevalencia(base: str, particao: str, listas_json: str = "data/splits/listas_sha256.json") -> float:
+    """Prevalência natural da partição (regra primária: incertos fora). Validação: a lista; teste: as
+    contagens congeladas (o carregador de treino não lê o teste)."""
+    if particao == "validacao":
+        from src.treino.carregador import ler_particao
+        return float(ler_particao(base, particao, verificar_hashes=False)["rotulo"].mean())
+    d = json.load(open(listas_json, encoding="utf-8"))["bases"][base]["listas"][particao]
+    return d["positivos"] / (d["imagens"] - d.get("incertos", 0))
+
+
 def main(argv=None) -> int:
-    from src.treino.carregador import ler_particao
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--base", choices=["plus", "rsna"], required=True)
+    ap.add_argument("--base", choices=["plus", "rsna", "padchest"], required=True)
     ap.add_argument("--particao", default="validacao")
     ap.add_argument("--modelos", default="/out/modelos")
     ap.add_argument("--bootstrap", type=int, default=2000)
     a = ap.parse_args(argv)
     pasta = f"/out/{a.base}/eixo_b/{a.particao}"
     tab = pd.read_csv(os.path.join(pasta, "tabela_eixo_b.csv"), dtype={"id_imagem": str, "id_paciente": str, "nivel": str})
-    prev = float(ler_particao(a.base, a.particao, verificar_hashes=False)["rotulo"].mean())
+    prev = prevalencia(a.base, a.particao)
     res = rodar(tab, a.modelos, prev, a.bootstrap)
     destino = os.path.join(pasta, "eixo_b_resultados.csv")
     res.to_csv(destino, index=False)
