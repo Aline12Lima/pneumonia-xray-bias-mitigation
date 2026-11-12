@@ -57,7 +57,7 @@ GRADE_F8 = {
     "desfoque": [0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24],
     "ruido": [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24],
     "resolucao": [1.05, 1.1, 1.15, 1.2, 1.3, 1.4, 1.5, 1.75, 2, 2.5, 3, 4, 6, 8, 12, 16],
-    "gama": [0.5, 0.6, 0.67, 0.75, 0.8, 0.85, 0.9, 0.95, 1.05, 1.1, 1.15, 1.25, 1.35, 1.5, 1.75, 2.0],
+    "gama": [0.4, 0.45, 0.5, 0.6, 0.67, 0.75, 0.8, 0.85, 0.9, 0.95, 1.05, 1.1, 1.15, 1.25, 1.35, 1.5, 1.75, 2.0],
     "contraste": [0.4, 0.5, 0.55, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.975],
     "brilho": [-60, -50, -40, -30, -25, -20, -15, -10, -5, 5, 10, 15, 20, 25, 30, 40, 50, 60],
 }
@@ -97,8 +97,8 @@ def naturais(base: str) -> pd.DataFrame:
         import glob
         med = pd.concat([pd.read_csv(a) for a in sorted(glob.glob("/out/padchest/medidas/medidas_pacote_*.csv"))],
                         ignore_index=True)
-        rec = pd.read_csv("/out/padchest_recorte.csv", usecols=["ImageID", "ImageDir", "Manufacturer_DICOM"])
-        df = med.merge(rec, on="ImageID", how="left").rename(columns={"ImageID": "id"})
+        rec = pd.read_csv("/out/padchest_recorte.csv", usecols=["ImageID", "Manufacturer_DICOM"])
+        df = med.merge(rec, on="ImageID", how="left").rename(columns={"ImageID": "id"})   # ImageDir já vem das medidas
         df = df[df["abriu"].astype(bool)].copy()
         df["fabricante"] = df["Manufacturer_DICOM"].map(normalizar_fabricante)
         return df

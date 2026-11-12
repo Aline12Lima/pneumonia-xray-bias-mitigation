@@ -104,3 +104,17 @@ def test_prevalencia_do_teste_pelas_contagens_congeladas():
     from src.analises.eixo_b import prevalencia
     assert abs(prevalencia("padchest", "teste") - 796 / 24770) < 1e-12
     assert abs(prevalencia("plus", "teste") - 690 / (35457 - 3065)) < 1e-12
+
+
+def test_naturais_do_padchest_tem_pacote_e_fabricante(tmp_path, monkeypatch):
+    import glob as g
+    import src.perturbations.piloto as P
+    med = pd.DataFrame({"ImageID": ["a.png", "b.png"], "ImageDir": [0, 54], "abriu": [True, True], "q_brilho": [1.0, 2.0]})
+    rec = pd.DataFrame({"ImageID": ["a.png", "b.png"], "ImageDir": [0, 54], "Manufacturer_DICOM": ["PhilipsMedicalSystems", None]})
+    med.to_csv(tmp_path / "medidas_pacote_0.csv", index=False)
+    rec.to_csv(tmp_path / "recorte.csv", index=False)
+    real_glob, real_read = g.glob, pd.read_csv
+    monkeypatch.setattr(g, "glob", lambda pat: [str(tmp_path / "medidas_pacote_0.csv")])
+    monkeypatch.setattr(pd, "read_csv", lambda f, **k: real_read(str(tmp_path / "recorte.csv") if "recorte" in str(f) else f, **k))
+    nat = P.naturais("padchest")
+    assert list(nat.loc[nat["ImageDir"] == 0, "id"]) == ["a.png"] and "fabricante" in nat
