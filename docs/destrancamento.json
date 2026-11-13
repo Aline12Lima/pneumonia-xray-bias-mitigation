@@ -1,0 +1,13 @@
+{
+  "passo": "F6 › 6.7 — destrancamento do teste",
+  "registrado_em": "2026-11-13T10:06:59-03:00",
+  "tag_codigo": "analise-v1",
+  "commit_da_tag": "d71aae18781cb990a72a8814f680a1ea75086ece",
+  "data_da_tag": "2026-11-13T10:06:01-03:00",
+  "listas_sha256": {
+    "plus": "7437a920aa6927e39124d274e53113754f369b7a26c5fc4c9a9fec5352e3ae62",
+    "rsna": "c4de2e1cacdf7d73b41e97b8954550f1ccbcd2956b169308f83d204d214d14f5",
+    "padchest": "0786ca662163a175eb48995ad3dfd4b61b5389466d4735cc3134f3a5e258f21a"
+  },
+  "observacao": "Vale a partir do merge deste arquivo no main. Antes dele, nenhum modelo foi aplicado ao teste: a trava de src/predicoes/teste.py exige este arquivo."
+}

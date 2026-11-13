@@ -78,6 +78,7 @@ def test_teste_do_eixo_b_exige_destrancamento(tmp_path, monkeypatch):
     arq = tmp_path / "teste.csv"
     pd.DataFrame({"id": ["a", "b"], "patientId": ["1", "2"], "rotulo": ["positivo", "negativo"]}).to_csv(arq, index=False)
     monkeypatch.setattr(T, "lista", lambda b, simulado: (str(arq), "teste"))
+    monkeypatch.setattr(T.conferir_trava, "__defaults__", (str(tmp_path / "nao_existe.json"), T.HASHES_LISTAS, T.RAIZ_REPO))
     with pytest.raises(PermissionError, match="trancado"):
         tabela_da_particao("rsna", "teste")
 
