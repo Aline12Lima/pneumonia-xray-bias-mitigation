@@ -199,14 +199,20 @@ Leitura **descritiva**: a classificação de cada par nos cenários S1 a S5 só 
   - **T1 cruzado (só medidas comparáveis):** a relação entre qualidade e rótulo **não se transfere** entre bases. As AUROCs ficam entre 0,28 e 0,61, várias abaixo de 0,5. Plus → RSNA 0,328 / 0,361 com brilho, mas a posição sozinha já dá 0,294: a inversão vem sobretudo da posição, cuja relação com o rótulo muda de sentido entre as duas bases (como no ensaio). PadChest → RSNA: a posição sozinha dá 0,706, e acrescentar as medidas derruba para 0,561 / 0,568 (ganho −0,146 / −0,139; sem brilho −0,269 / −0,176). O melhor cruzamento é RSNA → PadChest (0,609 / 0,560 com brilho);
   - **T2 (fonte em 3 classes, só medidas comparáveis):** logística / boosting, todas as imagens AUROC 0,951 / 0,984 (acerto 0,857 / 0,916; classe majoritária 0,521); positivos 0,967 / 0,979 (0,884 / 0,895; 0,425); negativos 0,950 / 0,984 (0,858 / 0,918; 0,532). A origem é quase toda identificável pelas medidas de qualidade, também dentro de cada classe; 4 imagens fora por medida vazia;
   - **o que isso antecipa para o eixo C:** como no ensaio, o S2 dificilmente fica balanceado (pouca sobreposição entre as bases nas medidas comparáveis), então a parcela de qualidade e o H2 tendem a ser lidos como inconclusivos pela regra já registrada (F6 › Eixo C).
+- **Passos 7.4 a 7.7 (15/11), eixo C** (`/out/analises/teste/eixo_c.csv`; 5 pares, 4 métricas):
+  - **regra de equilíbrio:** nenhum par chega à diferença padronizada máxima < 0,1, nem em S1 (0,21 a 0,33) nem em S2 (0,65 a 0,95). Tamanho efetivo em S2 de 396 a 1.308 imagens; maior peso 31 a 59; 1% dos pesos truncados. Pela regra registrada (F6 › Eixo C › Equilíbrio e suporte comum), a parcela de qualidade e o H2 de **todos os pares são inconclusivos (S5)**;
+  - **H2 (família 3, AUROC, Holm):** p ajustado 1 nos 5 pares;
+  - **padronização clínica (S1), descritiva e com o S1 também desbalanceado:** a queda da AUROC diminui em vários pares (M2 → Plus 0,209 → 0,120; M2 → PadChest 0,110 → 0,056; M1 → PadChest 0,050 → 0,024; M1 → RSNA 0,142 → 0,102); FPR do M2 → Plus 0,265 → 0,048. Acrescentar a qualidade (S2) quase nunca reduz mais e muitas vezes aumenta a queda (parcelas de qualidade negativas, até −1,30 no M3), coerente com pesos extremos;
+  - **suporte comum (12% a 25% das imagens):** nos pares com o PadChest a queda da AUROC some ou cai muito (M1 −0,013; M3 0,000; M2 0,054); entre Plus e RSNA ela persiste (M1 → RSNA 0,126; M2 → Plus 0,096);
+  - **métricas secundárias (BH):** p ajustado 0,0075 no FNR do M1 → RSNA e no FPR do M2 → PadChest, ambos com D_bruto negativo (o externo erra menos naquela métrica por deslocamento do limiar); inconclusivos pela mesma regra;
+  - **evidências complementares não executadas:** harmonização por quantis, controles de rótulo do Plus e ajuste de prior não estavam no código congelado; registrado como **DV-001** (desvio por omissão, sem mudança de código nem de números). O subconjunto médico do PadChest é o recorte inteiro e já está coberto.
 
 ---
 
 ## Próximos passos (pelo plano de execução)
 
-1. **F7:** eixo C (7.4 a 7.7) no teste: `python -m src.analises.eixo_c --tabela /out/predicoes/tabela_teste.csv`.
-2. **F9:** eixo A no teste; revisão qualitativa (sorteio, pranchas por base, codificação, resumo).
-3. **F8:** eixo B no teste nas três bases (CPU para gerar, GPU para predizer); análise por base.
-4. **Sensibilidade da conversão do PadChest:** hashes da cópia da janela, predição (GPU), junção e E0.
-5. **F10 (exploratória, cortável):** embeddings (GPU) e análise.
-6. **T3 e família 2** (`src.analises.consolidar --particao teste`), depois a F11.
+1. **F9:** eixo A no teste (`python -m src.analises.eixo_a --tabela /out/predicoes/tabela_teste.csv`); revisão qualitativa (sorteio, pranchas por base, codificação, resumo).
+2. **F8:** eixo B no teste nas três bases (CPU para gerar, GPU para predizer); análise por base.
+3. **Sensibilidade da conversão do PadChest:** hashes da cópia da janela, predição (GPU), junção e E0.
+4. **F10 (exploratória, cortável):** embeddings (GPU) e análise.
+5. **T3 e família 2** (`src.analises.consolidar --particao teste`), depois a F11.
