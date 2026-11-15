@@ -209,9 +209,24 @@ Leitura **descritiva**: a classificação de cada par nos cenários S1 a S5 só 
 
 ---
 
+## 12. Auditoria de erros (F9, a partir de 15/11/2026)
+
+Leitura **descritiva**; relevância prática e cenários S1 a S5 só na F11.
+
+- **Passos 9.1 a 9.3 (15/11), eixo A** (`/out/analises/teste/eixo_a_*.csv`): 144 regressões (72 primárias com Holm, família 1; 72 secundárias com BH), 5 sementes juntas, EP agrupado por paciente, OR por 1 DP dentro da fonte.
+  - **16 falhas pela regra de estimabilidade** (< 10 eventos por parâmetro), todas no FN e consequência do limiar deslocado: M1 × PadChest (35 FN nas 5 sementes; o M1 marca quase tudo como positivo no PadChest) e M3 × RSNA (26 FN; FNR de 0,005 com o limiar conjunto). 8 primárias e 8 secundárias; entram na correção com p = 1;
+  - **27 das 72 primárias passam no Holm.** Brilho × FP em 8 dos 9 pares (OR 1,15 a 1,77; exceção M1 × RSNA, 0,94); enquadramento × FP em 7 pares (1,04 a 1,20); contraste × FP em 4 (1,09 a 1,16, e 0,59 no M2 × Plus); saturação × FP em 3 (1,06 a 1,86); brilho × FN em 4 (0,63 a 0,70); contraste × FN no M2 × Plus (1,31);
+  - **brilho:** nos FN, OR abaixo de 1 em todos os pares estimáveis (imagem mais clara, menos FN); nos FP, acima de 1 (imagem mais clara, mais FP). As duas direções combinam com o modelo lendo o pulmão mais claro como opacidade; no FN a leitura tem a ressalva do §8.3 (o brilho pode refletir a extensão da opacidade);
+  - **tamanho dos efeitos:** com dezenas de milhares de eventos de FP, ORs pequenos (1,04 a 1,10) têm p minúsculo; a relevância é julgada na F11. Os maiores efeitos: M2 × Plus (brilho FP 1,77; contraste FP 0,59), M3 × RSNA (brilho FP 1,60; saturação FP 1,86), M2 × RSNA (saturação FP 1,50);
+  - **pares com limiar muito deslocado** (M1 no RSNA e no PadChest, FPR 0,95 a 0,97): quase todo negativo é FP, o que limita a leitura dos modelos de FP nesses pares (M1 × RSNA sem nenhum efeito no Holm);
+  - **calibração por faixa:** 87 linhas (ECE e inclinação por faixa da medida, média das sementes), para a F11.
+- **Passo 9.4, parâmetros físicos:** não executado (nem a janela do DICOM no Plus): não havia código antes da tag; registrado como **DV-002**.
+
+---
+
 ## Próximos passos (pelo plano de execução)
 
-1. **F9:** eixo A no teste (`python -m src.analises.eixo_a --tabela /out/predicoes/tabela_teste.csv`); revisão qualitativa (sorteio, pranchas por base, codificação, resumo).
+1. **F9:** revisão qualitativa (`src.analises.f9_revisao --sortear` → `--pranchas` em cada base → codificação → `--resumo`).
 2. **F8:** eixo B no teste nas três bases (CPU para gerar, GPU para predizer); análise por base.
 3. **Sensibilidade da conversão do PadChest:** hashes da cópia da janela, predição (GPU), junção e E0.
 4. **F10 (exploratória, cortável):** embeddings (GPU) e análise.
