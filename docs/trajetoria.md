@@ -179,13 +179,34 @@ Os documentos produzidos em vários chats foram reunidos numa só pasta (`docs/`
 - **F10 escrita antes da tag (12/11):** embeddings, sondas de origem e de qualidade, projeção e Grad-CAM com sanidade (F10 › Espaço latente e explicabilidade › Desenho), testados com dados sintéticos. Com isso, todo o código de análise pré-especificado está no repositório: próximo passo, a tag (6.6).
 - **Passo 6.6, tag do código (13/11):** a primeira tentativa (10h02) criou `analise-v1` em `0c39248`, sem a F10, porque o patch da F10 não tinha sido baixado; a tag foi apagada (local e GitHub) antes de qualquer leitura do teste e recriada às 10h06 em `d71aae1`, com todo o código pré-especificado (predições do teste com trava, junção, E0, eixos A, B e C, T1/T2, T3, sensibilidade da conversão, F9 e F10).
 - **Passo 6.7, destrancamento (2026-11-13):** `docs/destrancamento.json` registra a hora, a tag `analise-v1` (`d71aae1`) e o SHA-256 das três listas de teste (Plus `7437a920…`, RSNA `c4de2e1c…`, PadChest `0786ca66…`). O teste fica destrancado a partir do merge desse arquivo; o portão G6 (15 modelos, métricas de validação registradas, tag antes de qualquer leitura do teste) está cumprido.
+- **Passo 6.8 (13 e 14/11), predições do teste:** as 15 execuções aplicadas ao teste das três bases, no notebook de cada base (GPU), e enviadas ao dataset `resultados`. Contagens conferidas contra as listas congeladas: Plus 32.392 imagens (+3.065 incertas na tabela à parte), 690 positivos, 12.566 pacientes; RSNA 5.037 imagens, 1.100 positivos, 2.185 pacientes; PadChest 24.770 imagens, 796 positivos, 22.985 pacientes. Junção no notebook de treino (`src.predicoes.juntar_teste`): `/out/predicoes/tabela_teste.csv` (932.985 linhas, regra primária) e `tabela_teste_sensibilidade_incertos.csv` (incertos do Plus com rótulo 1, sensibilidade de D-018).
 - **Créditos (7/11):** o Redivis concedeu 500 créditos; saldo 518.
 - **M3 implementado (3/11):** época balanceada, parada pela média das AUPRCs das fontes e correções 3a e 3c com escolha pela menor ECE médio (decisões F6 › M3). O caminho do M1 e do M2 ficou idêntico: um treino curto na CPU deu predições iguais bit a bit antes e depois da mudança.
 
 ---
 
+## 11. Generalização (F7, a partir de 14/11/2026)
+
+Leitura **descritiva**: a classificação de cada par nos cenários S1 a S5 só é feita na F11, pela regra da §10, depois de todas as análises. Tudo com bootstrap por paciente de 2.000 reamostragens, código da tag `analise-v1`.
+
+- **Passo 7.1 (14/11), E0** (`/out/analises/teste/e0_*.csv`):
+  - **interno:** M1 no Plus AUROC 0,783; M2 no RSNA 0,875; M3 0,798 no Plus e 0,865 no RSNA;
+  - **queda externa da AUROC (IC 95%):** M2 RSNA → Plus 0,209 (0,181 a 0,234); M1 Plus → RSNA 0,142 (0,112 a 0,174); M2 RSNA → PadChest 0,110 (0,088 a 0,130); M3 RSNA → PadChest 0,088 (0,066 a 0,109); M1 Plus → PadChest 0,050 (0,029 a 0,074); M3 Plus → PadChest 0,021 (−0,000 a 0,043, encosta em zero). Em 5 dos 6 pares a queda passa da margem de 0,02 com o IC acima de zero;
+  - **limiar reaplicado sem reajuste (D-010):** o M1 no limiar do Plus marca quase tudo como positivo no RSNA e no PadChest (FPR 0,95 a 0,97); o M2 no PadChest vai para o outro lado (FNR 0,52). No M3, o limiar conjunto favorece o Plus: no RSNA, FNR 0,005 e FPR 0,844; com o limiar por fonte (secundária pré-registrada), 0,101 e 0,361;
+  - **calibração:** piora mais nos cruzamentos entre Plus e RSNA (ΔECE 0,14 a 0,15) do que no PadChest (até 0,03).
+- **Passos 7.2 e 7.3 (15/11), T1 e T2** (`/out/analises/teste/t1.csv` e `t2.csv`; 62.199 imagens):
+  - **T1 interno (qualidade + posição + idade + sexo contra só a posição), com brilho, logística / boosting:** Plus 0,577 / 0,577 (só posição 0,534; ganho +0,043 / +0,043); RSNA 0,753 / 0,746 (0,692; +0,060 / +0,054); **PadChest 0,678 / 0,686 (0,520; +0,158 / +0,164)**. Sem o brilho: Plus +0,020 / +0,037; RSNA +0,049 / +0,040; PadChest +0,158 / +0,160. O brilho acrescenta pouco no Plus e no RSNA e nada no PadChest;
+  - **T1 cruzado (só medidas comparáveis):** a relação entre qualidade e rótulo **não se transfere** entre bases. As AUROCs ficam entre 0,28 e 0,61, várias abaixo de 0,5. Plus → RSNA 0,328 / 0,361 com brilho, mas a posição sozinha já dá 0,294: a inversão vem sobretudo da posição, cuja relação com o rótulo muda de sentido entre as duas bases (como no ensaio). PadChest → RSNA: a posição sozinha dá 0,706, e acrescentar as medidas derruba para 0,561 / 0,568 (ganho −0,146 / −0,139; sem brilho −0,269 / −0,176). O melhor cruzamento é RSNA → PadChest (0,609 / 0,560 com brilho);
+  - **T2 (fonte em 3 classes, só medidas comparáveis):** logística / boosting, todas as imagens AUROC 0,951 / 0,984 (acerto 0,857 / 0,916; classe majoritária 0,521); positivos 0,967 / 0,979 (0,884 / 0,895; 0,425); negativos 0,950 / 0,984 (0,858 / 0,918; 0,532). A origem é quase toda identificável pelas medidas de qualidade, também dentro de cada classe; 4 imagens fora por medida vazia;
+  - **o que isso antecipa para o eixo C:** como no ensaio, o S2 dificilmente fica balanceado (pouca sobreposição entre as bases nas medidas comparáveis), então a parcela de qualidade e o H2 tendem a ser lidos como inconclusivos pela regra já registrada (F6 › Eixo C).
+
+---
+
 ## Próximos passos (pelo plano de execução)
 
-1. **Linha de base (1 a 7/11):** piloto do M1 com GPU, testes de sanidade e de determinismo, primeira tabela de predições da validação.
-2. **Em paralelo:** T1 e T2 exploratórios em treino e validação; rótulos do rotulador CheXpert no Plus; geração das imagens degradadas da amostra (CPU).
-3. **Modelos M1 a M3 (8 a 20/11)**, ensaio geral na validação, tag do código de análise e destrancamento do teste em 21/11.
+1. **F7:** eixo C (7.4 a 7.7) no teste: `python -m src.analises.eixo_c --tabela /out/predicoes/tabela_teste.csv`.
+2. **F9:** eixo A no teste; revisão qualitativa (sorteio, pranchas por base, codificação, resumo).
+3. **F8:** eixo B no teste nas três bases (CPU para gerar, GPU para predizer); análise por base.
+4. **Sensibilidade da conversão do PadChest:** hashes da cópia da janela, predição (GPU), junção e E0.
+5. **F10 (exploratória, cortável):** embeddings (GPU) e análise.
+6. **T3 e família 2** (`src.analises.consolidar --particao teste`), depois a F11.
