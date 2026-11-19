@@ -221,13 +221,13 @@ Leitura **descritiva**; relevância prática e cenários S1 a S5 só na F11.
   - **pares com limiar muito deslocado** (M1 no RSNA e no PadChest, FPR 0,95 a 0,97): quase todo negativo é FP, o que limita a leitura dos modelos de FP nesses pares (M1 × RSNA sem nenhum efeito no Holm);
   - **calibração por faixa:** 87 linhas (ECE e inclinação por faixa da medida, média das sementes), para a F11.
 - **Passo 9.4, parâmetros físicos:** não executado (nem a janela do DICOM no Plus): não havia código antes da tag; registrado como **DV-002**.
+- **Passos 9.5 a 9.7 (15 a 19/11), revisão qualitativa:** amostra sorteada no notebook de treino (`f9_revisao --sortear --treinos /out/treinos`: o padrão do código apontava para `/out/modelos`, pasta dos notebooks das bases; só o argumento mudou). 5 pares, semente 0: 25 FP e 25 FN de maior confiança e 25 + 25 aleatórios por par, exceto os FN do M1 → PadChest (8, todos de maior confiança) e do M3 → PadChest (13), por causa do limiar deslocado. Imagens a codificar: Plus 100, RSNA 100, PadChest 203 (18 em mais de um par); SHA-256 da amostra `f23aab9b04b2b7ce7e5b3d7da9c83ae50b102d6cf224080430880e3bf7ef8f1a`. Pranchas geradas nas três bases (5, 5 e 11; o dataset `resultados` foi adicionado aos workflows do Plus e do PadChest para a leitura). A folha não é cega ao tipo de erro: na amostra só há erros, então o rótulo positivo implica FN e o negativo, FP. Codificação interrompida depois de 20 imagens: ver **DV-003**.
 
 ---
 
 ## Próximos passos (pelo plano de execução)
 
-1. **F9:** revisão qualitativa (`src.analises.f9_revisao --sortear` → `--pranchas` em cada base → codificação → `--resumo`).
-2. **F8:** eixo B no teste nas três bases (CPU para gerar, GPU para predizer); análise por base.
-3. **Sensibilidade da conversão do PadChest:** hashes da cópia da janela, predição (GPU), junção e E0.
-4. **F10 (exploratória, cortável):** embeddings (GPU) e análise.
-5. **T3 e família 2** (`src.analises.consolidar --particao teste`), depois a F11.
+1. **F8:** eixo B no teste nas três bases (CPU para gerar, GPU para predizer); análise por base.
+2. **Sensibilidade da conversão do PadChest:** hashes da cópia da janela, predição (GPU), junção e E0.
+3. **F10 (exploratória, cortável):** embeddings (GPU) e análise.
+4. **T3 e família 2** (`src.analises.consolidar --particao teste`), depois a F11.
